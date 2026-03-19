@@ -72,23 +72,22 @@ Income Loss Calculated (Expected vs Actual income gap)
 Instant Payout Triggered (UPI / Wallet)
 ```
 
----
-
 ## ⚡ Parametric Triggers
 
-These are the automated conditions that initiate a claim. No manual filing required.
+<p align="center">
+  <img src="gigshield_parametric_trigger_design.svg" width="800">
+</p>
 
-| # | Trigger | Condition | Source |
-|---|---|---|---|
-| 1 | 🌧️ **Weather Disruption** | Rainfall > 20mm/hr OR flood alert in zone | OpenWeatherMap API |
-| 2 | 🌡️ **Extreme Heat** | Temperature > 42°C during active hours | Weather API |
-| 3 | 🚫 **Curfew / Strike Alert** | Government-issued curfew or local bandh in zone | News API / Mock |
-| 4 | 📉 **Order Drop Detection** | Orders fall >60% below worker's 4-week average in a shift | Platform API (Simulated) |
-| 5 | 💨 **Severe Pollution** | AQI > 400 in worker's zone | CPCB / AQI API |
+The system uses **parametric triggers** to automatically detect disruptions affecting gig workers.  
+Instead of manual claims, payouts are triggered based on **real-time external data sources**.
 
-> **Core Logic:** If (Trigger fires) AND (Worker is verified active) AND (Income drops below threshold) → Payout is processed automatically.
+### 🔍 How it works
+- Monitors environmental & platform signals (weather, AQI, orders, alerts)
+- Matches worker activity status in real-time
+- Calculates income deviation from baseline
+- Automatically triggers payout based on severity tier (T1–T3)
 
----
+> **Core Logic:** If (Trigger fires) AND (Worker is active) AND (Income drops) → Instant payout
 
 ## 💰 Weekly Pricing Model
 
