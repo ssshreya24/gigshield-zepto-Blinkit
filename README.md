@@ -52,7 +52,7 @@ Worker Registers
        ↓
 AI Calculates Weekly Premium (based on zone risk, history, weather forecast)
        ↓
-Real-Time Monitoring (Weather APIs + Order Activity)
+Real-Time Monitoring (Weather APIs + Order Activity + Platform Signals)
        ↓
 Disruption Detected (Trigger fires)
        ↓
@@ -71,7 +71,7 @@ Instant Payout Triggered (UPI / Wallet)
 ## ⚡ Parametric Triggers
 
 <p align="center">
-  <img src="gigshield_parametric_trigger_design.svg" width="800">
+  <img src="gigshield_parametric_trigger_design (2).svg" width="800">
 </p>
 
 The system uses *parametric triggers* to automatically detect disruptions affecting gig workers.  
@@ -88,6 +88,13 @@ GigShield also handles large-scale platform-level disruptions that are not cause
   - Dark store shutdowns
   - Supply chain failures
   - Economic or operational disruptions
+
+**Trigger Tier Mapping (Added):**
+
+| Disruption | Threshold | Tier | Payout |
+|-----------|----------|------|--------|
+| Platform Order Crash | >60% drop in zone orders (2+ hrs) | T2 | 50% weekly coverage |
+| Full Platform Shutdown | >80% drop / dark store closed | T3 | 100% weekly coverage |
 
 *Trigger Condition:*
 •⁠  ⁠If zone-level order activity drops >70% compared to historical baseline  
@@ -159,10 +166,19 @@ GigShield starts without real worker data. We solve this using a hybrid data str
 
 **Day 1 Data Sources:**
 - Historical weather data (IMD + OpenWeatherMap API)
-- Zone-level disruption history (floods, heavy rain events)
-- Synthetic income patterns (simulated based on disruption scenarios)
+- Zone-level disruption history
+- Synthetic income patterns
 
-> Note: GigShield does NOT depend on platform order data — this maintains independence and avoids internal signal bias.
+**Initial Model Training Approach:**
+- Pre-train on weather + AQI datasets
+- Generate synthetic disruption labels
+- Simulate order volume patterns
+
+**Phase 2+:**
+- Replace synthetic data with real worker activity logs
+
+
+> Note: GigShield primarily relies on external signals but can optionally integrate anonymized platform-level order data (mocked or API-based) to detect economic disruptions such as market crashes.
 
 **New Worker Onboarding Strategy:**
 - Week 1–2: Zone-based average risk and income
@@ -184,7 +200,7 @@ GigShield follows a structured AI pipeline from raw data to payout decision.
 **Step 1: Data Collection**
 - Weather APIs (rain, heat, flood alerts)
 - Historical disruption records (zone-level)
-- Worker earnings history (if available)
+- Worker earnings history (if available) OR simulated baseline for new users
 - GPS activity logs
 
 **Step 2: Cold Start Handling**
@@ -221,7 +237,7 @@ AND (No Fraud Detected)
 → Trigger Payout
 ```
 
-> Key Insight: GigShield does NOT rely on internal platform data — it uses external signals + income prediction, making it scalable and independent.
+> Key Insight: GigShield primarily relies on external signals but can optionally use anonymized platform-level order signals (mocked or API-based) for detecting economic disruptions such as market crashes.
 
 ---
 
@@ -268,8 +284,9 @@ External Trigger + Worker Active + Income Gap + Fraud Check → Payout
 GigShield ensures only genuine claims are approved using multi-layer validation.
 
 **1. GPS Spoofing Detection**
-- Compare real-time GPS with known delivery zones and historical movement patterns
-- Flag if: sudden unrealistic jumps (>5 km instantly) or location mismatch with assigned zone
+- IF (distance between consecutive GPS points > 5 km AND time < 60 sec)
+  → Flag as GPS spoofing
+
 
 **2. Activity Verification**
 - Worker must be online in app and within delivery zone
@@ -282,6 +299,10 @@ GigShield ensures only genuine claims are approved using multi-layer validation.
 **4. Duplicate Claim Prevention**
 - Each disruption event has a unique ID
 - Worker can claim only once per event
+
+**5. Income Manipulation Detection**
+- IF worker logs in only during disruption windows repeatedly
+  → Mark as high-risk behavior
 
 **Fraud Logic:**
 ```
@@ -321,6 +342,9 @@ Else → Claim Rejected / Flagged
 ---
 
 ## Minimum Viable Product (Phase 1 Scope)
+
+**Phase 1 Focus:**
+We intentionally limit scope to weather-based triggers and a simplified AI pipeline to demonstrate core system feasibility within hackathon constraints.
 
 For Phase 1, GigShield focuses on building a working prototype with limited but critical functionality.
 
