@@ -1,7 +1,7 @@
 # 🛡️ GigShield — AI-Powered Parametric Insurance for Q-Commerce Delivery Workers
 
 > **Guidewire DEVTrails 2026 | University Hackathon**
-> Phase 1 Submission | Team: [Your Team Name]
+> Phase 1 Submission | Team: FutureForge
 
 ---
 
@@ -27,13 +27,6 @@ Q-commerce delivery workers face a specific set of structural risks that make th
 | **External Weather Events** | Rain, flood, extreme heat halts deliveries entirely |
 | **Social Disruptions** | Curfews, local strikes block access to pickup/drop zones |
 
-### What We Are NOT Solving
-- ❌ Inventory loss or company loss
-- ❌ Vehicle repair or health insurance
-- ❌ Accident medical bills
-
-### What We ARE Solving
-- ✅ **Worker income loss** due to uncontrollable external disruptions only
 
 ---
 
@@ -72,22 +65,52 @@ Income Loss Calculated (Expected vs Actual income gap)
 Instant Payout Triggered (UPI / Wallet)
 ```
 
+---
+
+
 ## ⚡ Parametric Triggers
 
 <p align="center">
   <img src="gigshield_parametric_trigger_design.svg" width="800">
 </p>
 
-The system uses **parametric triggers** to automatically detect disruptions affecting gig workers.  
-Instead of manual claims, payouts are triggered based on **real-time external data sources**.
+The system uses *parametric triggers* to automatically detect disruptions affecting gig workers.  
+Instead of manual claims, payouts are triggered based on *real-time external data sources*.
+
+### Additional Trigger: Platform / Market Disruption
+
+GigShield also handles large-scale platform-level disruptions that are not caused by weather or local events.
+
+*Market Crash / Platform Disruption Trigger:*
+•⁠  ⁠Detects sudden drop in overall order volume across a zone or platform
+•⁠  ⁠Can be caused by:
+  - Platform outages
+  - Dark store shutdowns
+  - Supply chain failures
+  - Economic or operational disruptions
+
+*Trigger Condition:*
+•⁠  ⁠If zone-level order activity drops >70% compared to historical baseline  
+•⁠  ⁠AND worker is active but receives significantly fewer/no orders  
+
+→ System flags a *Market Disruption Event*
+
+*Why this matters:*
+This ensures GigShield protects workers not just from environmental risks, but also from *platform-side failures*, which are equally uncontrollable.
+
+	⁠This makes the system more comprehensive and aligned with real-world gig economy risks.
 
 ### 🔍 How it works
-- Monitors environmental & platform signals (weather, AQI, orders, alerts)
-- Matches worker activity status in real-time
-- Calculates income deviation from baseline
-- Automatically triggers payout based on severity tier (T1–T3)
+•⁠  ⁠Monitors external signals (weather events, zone disruptions, civic alerts)
+•⁠  ⁠Matches worker activity status in real-time
+•⁠  ⁠Calculates income deviation from baseline
+•⁠  ⁠Automatically triggers payout based on severity tier (T1–T3)
 
-> **Core Logic:** If (Trigger fires) AND (Worker is active) AND (Income drops) → Instant payout
+	⁠*Core Logic:* If (Trigger fires) AND (Worker is active) AND (Income drops) → Instant payout
+
+---
+
+---
 
 ## 💰 Weekly Pricing Model
 
@@ -113,116 +136,295 @@ The AI dynamically adjusts the base premium using:
 
 ---
 
-## 🧠 AI/ML Integration Plan
+## AI/ML Integration Plan
 
-### 1. Risk Assessment Model
-- Input: Zone location, historical disruption data, weather forecast, season
-- Output: Weekly risk score (Low / Medium / High) → maps to premium adjustment
-- Approach: Gradient Boosted Trees (XGBoost) trained on historical weather + claim data
+### Core AI Philosophy: Income Loss First
 
-### 2. Expected vs Actual Income Prediction
-- Input: Worker's past 4-week earnings, day-of-week, time-of-day, weather
-- Output: Expected income for the shift → compare with actual → calculate loss gap
-- Approach: Time-series regression model (LSTM or Prophet)
+GigShield focuses on accurate income loss prediction combined with verified external triggers, instead of relying on multiple internal signals.
 
-### 3. Dynamic Premium Engine
-- Combines Risk Score + Income Prediction + Zone data
-- Recalculates every week before policy renewal
-- Ensures premium is always proportional to real risk
+- Predict expected earnings for a worker using historical patterns
+- Compare with actual earnings during disruption
+- Calculate the exact income gap
+- Trigger payout only if a valid external disruption is detected
 
-### 4. Fraud Detection System
-- **GPS Spoofing Detection:** Validate GPS coordinates against known delivery zone boundaries
-- **Activity Verification:** Cross-check app online status with order attempt logs
-- **Behavioral Anomaly Detection:** Flag unusual claim frequency or timing patterns
-- **Duplicate Claim Prevention:** Hash-based deduplication on trigger events per worker
+> This ensures fairness, transparency, and prevents false payouts.
 
 ---
 
-## 🔷 Core Features
+### Training Data Strategy
+
+**The Cold Start Problem**
+
+GigShield starts without real worker data. We solve this using a hybrid data strategy.
+
+**Day 1 Data Sources:**
+- Historical weather data (IMD + OpenWeatherMap API)
+- Zone-level disruption history (floods, heavy rain events)
+- Synthetic income patterns (simulated based on disruption scenarios)
+
+> Note: GigShield does NOT depend on platform order data — this maintains independence and avoids internal signal bias.
+
+**New Worker Onboarding Strategy:**
+- Week 1–2: Zone-based average risk and income
+- Week 3–4: 70% zone + 30% worker data
+- Week 5+: Fully personalized model
+
+Model improves continuously with real usage.
+
+<p align="center">
+  <img src="gigshield_aiml_full_v4.svg" width="800" alt="GigShield AI/ML Full Flow Diagram">
+</p>
+
+---
+
+### How the AI System Works (End-to-End)
+
+GigShield follows a structured AI pipeline from raw data to payout decision.
+
+**Step 1: Data Collection**
+- Weather APIs (rain, heat, flood alerts)
+- Historical disruption records (zone-level)
+- Worker earnings history (if available)
+- GPS activity logs
+
+**Step 2: Cold Start Handling**
+- New worker → uses zone-level average risk and income
+- Gradually shifts to personalized model:
+  - Week 1–2: 100% zone data
+  - Week 3–4: 70% zone + 30% worker
+  - Week 5+: Fully personalized
+
+**Step 3: Feature Engineering**
+
+Raw data is converted into:
+
+| Raw Input | Engineered Feature |
+|---|---|
+| Zone GPS location | Zone Risk Score (0–100) |
+| Weather forecast | Disruption Probability (%) |
+| Historical disruption events | Flood / Event Frequency |
+| Worker tenure | Tenure Factor |
+| Past claim history | Claim Ratio |
+| Earnings history | Expected Weekly Income |
+
+**Step 4: Model Processing**
+- XGBoost Model → predicts risk level (Low / Medium / High)
+- Prophet Model → predicts expected income baseline
+
+**Step 5: Decision Logic**
+
+```
+If (Trigger Detected)
+AND (Worker Active)
+AND (Actual Income < Expected Income)
+AND (No Fraud Detected)
+→ Trigger Payout
+```
+
+> Key Insight: GigShield does NOT rely on internal platform data — it uses external signals + income prediction, making it scalable and independent.
+
+---
+
+### Data Flow
+
+<p align="center">
+  <img src="gigshield_data_flow_expanded.svg" width="800" alt="GigShield Data Flow Diagram">
+</p>
+
+---
+
+### Models Used
+
+**1. Risk Assessment Model (XGBoost)**
+- Predicts zone-level disruption risk
+- Input: Zone location, historical disruption data, weather forecast, season
+- Output: Low / Medium / High risk score → maps to premium adjustment
+
+**2. Income Prediction Model (Prophet / LSTM)** *(Core model driving payouts)*
+- Predicts expected worker earnings for the week
+- Compares expected vs actual earnings during disruption
+- Calculates the exact income loss gap
+- Input: Worker's past 4-week earnings, day-of-week, time-of-day, weather
+
+**3. Dynamic Premium Engine**
+- Combines risk score + income prediction + zone conditions
+- Recalculates every week before policy renewal
+- Low risk → base premium, no adjustment
+- Medium risk → base premium + ₹10–15/week
+- High risk → base premium + ₹20–30/week
+
+---
+
+### Decision Engine (Final Payout Logic)
+
+```
+External Trigger + Worker Active + Income Gap + Fraud Check → Payout
+```
+
+---
+
+### Fraud Detection System (Detailed Logic)
+
+GigShield ensures only genuine claims are approved using multi-layer validation.
+
+**1. GPS Spoofing Detection**
+- Compare real-time GPS with known delivery zones and historical movement patterns
+- Flag if: sudden unrealistic jumps (>5 km instantly) or location mismatch with assigned zone
+
+**2. Activity Verification**
+- Worker must be online in app and within delivery zone
+- Cross-check active session logs and GPS movement consistency
+
+**3. Behavioral Anomaly Detection**
+- Track claim patterns: too frequent claims in short time, claims always during specific hours
+- Flag if claim frequency exceeds threshold (e.g., >3 claims/week)
+
+**4. Duplicate Claim Prevention**
+- Each disruption event has a unique ID
+- Worker can claim only once per event
+
+**Fraud Logic:**
+```
+Valid GPS + Active Worker + Normal Behavior + Unique Event
+→ Claim Approved
+Else → Claim Rejected / Flagged
+```
+
+---
+
+### Output of AI System
+
+| Output | Description |
+|---|---|
+| Weekly Risk Level | Low / Medium / High per worker per zone |
+| Premium Adjustment | +₹0 / +₹15 / +₹30 per week |
+| Expected Income | Baseline earnings predicted by Prophet model |
+| Income Loss Gap | Expected minus actual earnings during disruption |
+| Final Payout Decision | Approved / Rejected based on all checks |
+
+---
+
+## Core Features
 
 | Feature | Description |
 |---|---|
-| **AI Risk Assessment** | Predict weekly risk level per worker per zone |
-| **Weekly Pricing Model** | Dynamic weekly premium based on zone + risk + forecast |
-| **Parametric Trigger Engine** | Real-time disruption detection from APIs (5 triggers) |
-| **Automated Claim System** | Zero-touch claim — no manual filing needed |
-| **Fraud Detection** | GPS validation + activity check + behavioral analysis |
-| **Worker Activity Verification** | Confirm worker was online and active during disruption |
-| **Zone Risk Map** | Visual map of disruption risk by delivery zone |
-| **Disruption Confidence Score** | AI-generated confidence % that a disruption caused income loss |
-| **Expected vs Actual Income AI** | Model that computes the exact income gap for payout |
-| **Dashboard (Worker + Admin)** | Worker: coverage status & payouts. Admin: analytics & fraud |
+| **Parametric Trigger Engine** | Detects external disruptions using real-world data |
+| **Automated Claim System** | Zero-touch claim processing |
+| **Weekly Pricing Model** | Dynamic premium based on risk |
+| **Income Prediction Engine** | Expected vs actual income calculation |
+| **Fraud Detection System** | GPS + activity + behavior validation |
+| **Worker Activity Verification** | Ensures worker was active during disruption |
+| **Zone Risk Map** | Visual risk zones for workers |
+| **Disruption Confidence Score** | Validates authenticity of disruption |
+| **Dashboard (Worker + Admin)** | Real-time tracking and analytics |
 
 ---
 
-## 🖥️ Platform Choice
+## Minimum Viable Product (Phase 1 Scope)
 
-**Web Application (Progressive Web App)**
+For Phase 1, GigShield focuses on building a working prototype with limited but critical functionality.
 
-**Justification:**
-- Delivery workers use low-to-mid range Android phones — a PWA ensures lightweight, fast loading
-- No app store dependency — workers can access via browser link
-- Works offline for basic status viewing
-- Admin dashboard best served on web for data visualization
+**Included in MVP:**
+- Weather-based parametric trigger (rain/flood)
+- Basic risk scoring (XGBoost — simplified)
+- Income prediction (baseline using past averages)
+- Worker activity verification (GPS + online status)
+- Automated payout simulation (basic logic)
+
+**Excluded in Phase 1 (Future Work):**
+- Advanced fraud detection (behavioral ML)
+- Full multi-trigger system (AQI, curfew, market crash scaling)
+- Real payment integration (simulation only)
+- Large-scale personalization
+
+**Goal of MVP:**
+To demonstrate end-to-end automated claim flow, income loss detection, and trigger-based payout system — while keeping the system realistic within hackathon constraints.
 
 ---
 
-## 🛠️ Tech Stack
+## Platform Choice
 
-### Frontend
-- **React.js** (PWA) — Worker dashboard + onboarding
-- **Tailwind CSS** — UI styling
-- **Chart.js / Recharts** — Analytics dashboard
+**Mobile Application (Android-first)**
+
+- Real-time GPS tracking — required for fraud detection and worker activity verification
+- Background monitoring — app tracks worker activity even when minimized
+- Better reliability than web — works smoothly in low network conditions
+- Push notifications — instant alerts for disruptions, risk warnings, payout confirmation
+- Matches real user behavior — delivery workers already use mobile apps (Zepto, Blinkit, Swiggy)
+
+GigShield leverages mobile capabilities to improve system reliability: continuous GPS tracking prevents spoofing, activity tracking ensures genuine worker participation, and device-level validation strengthens claim authenticity.
+
+---
+
+## Tech Stack
+
+### Mobile App (Worker App)
+- **React Native** — Cross-platform mobile app (Android-first)
+- **Expo / Native APIs** — GPS, notifications, background tasks
+- **Redux / Zustand** — State management
+
+### Admin Dashboard (Web)
+- **React.js + Tailwind CSS**
+- **Recharts / Chart.js** — Analytics visualization
 
 ### Backend
 - **Node.js + Express** — REST API server
 - **Python (FastAPI)** — AI/ML model serving
 
 ### Database
-- **PostgreSQL** — Worker profiles, policies, claims
-- **Redis** — Real-time trigger state caching
+- **PostgreSQL** — Worker data, policies, claims
+- **Redis** — Real-time trigger caching
 
 ### AI/ML
-- **Python (scikit-learn, XGBoost, statsmodels)** — Risk + pricing models
-- **TensorFlow Lite / Prophet** — Income prediction
+- **Python (scikit-learn, XGBoost)** — Risk model
+- **Prophet / LSTM** — Income prediction
 
 ### Integrations
-- **OpenWeatherMap API** — Weather triggers (free tier)
-- **CPCB AQI API** — Pollution trigger
-- **News API (mock)** — Curfew/strike detection
-- **Platform Order API (simulated)** — Order drop trigger
-- **Razorpay Test Mode / UPI Simulator** — Payout processing
+- **OpenWeatherMap API** — Weather triggers
+- **Government / News APIs** — Curfew detection
+- **GPS / Device Sensors** — Worker tracking
+- **Razorpay / UPI Simulator** — Payout processing
 
 ### Infrastructure
-- **GitHub** — Version control
-- **Railway / Render** — Deployment (free tier)
-- **Docker** — Containerization
+- **Docker**
+- **Render / Railway**
+- **Firebase (optional)** — Push notifications
 
 ---
 
-## 📅 Development Plan
+## Development Plan
 
-### Phase 1 (Mar 4–20): Ideation & Foundation ✅
-- [x] Problem definition and persona selection
-- [x] Feature scoping and filtering
-- [x] System architecture design
-- [x] Tech stack finalization
-- [x] README documentation
+### Phase 1 (Mar 4–20): Problem Understanding & System Design ✅
+- [x] Identified core problem: income loss due to external disruptions
+- [x] Defined scope: focus only on worker income protection (not inventory or operations)
+- [x] Analyzed Q-commerce system vulnerabilities (dark store dependency, hyperlocal zones)
+- [x] Designed parametric insurance logic (external triggers + income gap)
+- [x] Finalized AI approach (risk model + income prediction)
+- [x] Defined fraud prevention strategy (GPS + activity verification)
+- [x] Selected mobile-first architecture
+- [x] Completed system architecture and README
 
-### Phase 2 (Mar 21–Apr 4): Build Core Platform
-- [ ] Worker registration and onboarding flow
-- [ ] Insurance policy creation with weekly pricing
-- [ ] Dynamic premium calculation (AI model v1)
-- [ ] Parametric trigger engine (3–5 triggers)
-- [ ] Automated claims management
-- [ ] Basic fraud detection
+### Phase 2 (Mar 21–Apr 4): Core System Implementation
+- [ ] Build mobile app (worker onboarding + basic dashboard)
+- [ ] Implement weekly insurance policy system
+- [ ] Develop risk assessment model (XGBoost v1)
+- [ ] Develop income prediction model (Prophet v1)
+- [ ] Build parametric trigger engine (weather + external events)
+- [ ] Implement worker activity verification (GPS + online status)
+- [ ] Develop automated claim pipeline (trigger → verification → payout logic)
+- [ ] Integrate basic fraud detection (location + duplicate checks)
 
-### Phase 3 (Apr 5–17): Scale & Polish
-- [ ] Advanced fraud detection (GPS spoofing, behavioral)
-- [ ] Instant payout simulation (Razorpay test mode)
-- [ ] Full analytics dashboard (worker + admin)
-- [ ] Disruption simulation demo
-- [ ] Final pitch deck
+### Phase 3 (Apr 5–17): Intelligence, Security & Demo
+- [ ] Improve fraud detection (GPS spoofing + behavior analysis)
+- [ ] Implement decision engine (risk + income gap + fraud check)
+- [ ] Integrate payout simulation (UPI / Razorpay test mode)
+- [ ] Build worker dashboard (risk level, earnings protection, payouts)
+- [ ] Build admin dashboard (zone risk, claims monitoring, fraud alerts)
+- [ ] Simulate disruption scenarios (rain / zone shutdown demo)
+- [ ] Optimize AI models with test data
+- [ ] Prepare final demo + pitch presentation
+
+**Final Outcome:** By the end of Phase 3, GigShield will demonstrate real-time disruption detection, accurate income loss prediction, automated claim and payout system, and strong fraud prevention using mobile + AI.
 
 ---
 
@@ -235,7 +437,19 @@ The AI dynamically adjusts the base premium using:
 | [Member 3] | System Design + Integration |
 | [Member 4] | Data + Fraud Detection |
 
+---
 
+## 📁 Repository Structure
+
+```
+gigshield/
+├── frontend/          # React PWA
+├── backend/           # Node.js API server
+├── ml-service/        # Python AI/ML models
+├── docs/              # Architecture diagrams, design docs
+├── mock-apis/         # Simulated platform & payment APIs
+└── README.md
+```
 
 ---
 
