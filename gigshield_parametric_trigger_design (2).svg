@@ -1,0 +1,139 @@
+<svg width="100%" viewBox="0 0 680 720" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<!-- Title -->
+<text x="340" y="24" text-anchor="middle" dominant-baseline="central" style="fill:rgb(250, 249, 245);font-family:'Anthropic Sans',-apple-system,'system-ui','Segoe UI',sans-serif;font-size:14px;font-weight:500;">Parametric trigger design — Q-commerce persona</text>
+
+<!-- Header row -->
+<rect x="20"  y="42" width="118" height="36" rx="6" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<rect x="144" y="42" width="130" height="36" rx="6" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<rect x="280" y="42" width="168" height="36" rx="6" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<rect x="454" y="42" width="132" height="36" rx="6" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<rect x="592" y="42" width="68"  height="36" rx="6" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="79"  y="60" text-anchor="middle" dominant-baseline="central" style="fill:rgb(211,209,199);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">Disruption</text>
+<text x="209" y="60" text-anchor="middle" dominant-baseline="central" style="fill:rgb(211,209,199);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">Data source</text>
+<text x="364" y="60" text-anchor="middle" dominant-baseline="central" style="fill:rgb(211,209,199);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">Trigger threshold</text>
+<text x="520" y="60" text-anchor="middle" dominant-baseline="central" style="fill:rgb(211,209,199);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">Payout (weekly %)</text>
+<text x="626" y="60" text-anchor="middle" dominant-baseline="central" style="fill:rgb(211,209,199);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">Tier</text>
+
+<!-- ── ROW 1: Heavy rain ── -->
+<rect x="20"  y="88" width="118" height="76" rx="8" style="fill:rgb(12,68,124);stroke:rgb(133,183,235);stroke-width:0.5px;"/>
+<text x="79"  y="115" text-anchor="middle" dominant-baseline="central" style="fill:rgb(181,212,244);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">Heavy rain</text>
+<text x="79"  y="133" text-anchor="middle" dominant-baseline="central" style="fill:rgb(133,183,235);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Rainfall</text>
+<text x="79"  y="149" text-anchor="middle" dominant-baseline="central" style="fill:rgb(133,183,235);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">≥ 40mm/hr</text>
+<rect x="144" y="88" width="130" height="76" rx="8" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="209" y="115" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">OpenWeatherMap</text>
+<text x="209" y="133" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">IMD API (free)</text>
+<rect x="280" y="88" width="168" height="76" rx="8" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="364" y="111" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">≥40mm in 3-hr window</text>
+<text x="364" y="129" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">in worker's pin zone</text>
+<rect x="454" y="88" width="132" height="76" rx="8" style="fill:rgb(8,80,65);stroke:rgb(93,202,165);stroke-width:0.5px;"/>
+<text x="520" y="115" text-anchor="middle" dominant-baseline="central" style="fill:rgb(159,225,203);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">40% of weekly</text>
+<text x="520" y="133" text-anchor="middle" dominant-baseline="central" style="fill:rgb(93,202,165);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">premium coverage</text>
+<rect x="592" y="88" width="68" height="76" rx="8" style="fill:rgb(99,56,6);stroke:rgb(239,159,39);stroke-width:0.5px;"/>
+<text x="626" y="126" text-anchor="middle" dominant-baseline="central" style="fill:rgb(250,199,117);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">T2</text>
+
+<!-- ── ROW 2: Severe AQI ── -->
+<rect x="20"  y="174" width="118" height="76" rx="8" style="fill:rgb(113,43,19);stroke:rgb(240,153,123);stroke-width:0.5px;"/>
+<text x="79"  y="201" text-anchor="middle" dominant-baseline="central" style="fill:rgb(245,196,179);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">Severe AQI</text>
+<text x="79"  y="219" text-anchor="middle" dominant-baseline="central" style="fill:rgb(240,153,123);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">AQI ≥ 300</text>
+<text x="79"  y="235" text-anchor="middle" dominant-baseline="central" style="fill:rgb(240,153,123);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">(hazardous)</text>
+<rect x="144" y="174" width="130" height="76" rx="8" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="209" y="201" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">CPCB AQI API</text>
+<text x="209" y="219" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">IQAir (free tier)</text>
+<rect x="280" y="174" width="168" height="76" rx="8" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="364" y="197" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">AQI ≥ 300 sustained</text>
+<text x="364" y="215" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">for 4+ hours</text>
+<rect x="454" y="174" width="132" height="76" rx="8" style="fill:rgb(8,80,65);stroke:rgb(93,202,165);stroke-width:0.5px;"/>
+<text x="520" y="201" text-anchor="middle" dominant-baseline="central" style="fill:rgb(159,225,203);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">25% of weekly</text>
+<text x="520" y="219" text-anchor="middle" dominant-baseline="central" style="fill:rgb(93,202,165);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">premium coverage</text>
+<rect x="592" y="174" width="68" height="76" rx="8" style="fill:rgb(99,56,6);stroke:rgb(239,159,39);stroke-width:0.5px;"/>
+<text x="626" y="212" text-anchor="middle" dominant-baseline="central" style="fill:rgb(250,199,117);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">T1</text>
+
+<!-- ── ROW 3: Extreme heat ── -->
+<rect x="20"  y="260" width="118" height="76" rx="8" style="fill:rgb(99,56,6);stroke:rgb(239,159,39);stroke-width:0.5px;"/>
+<text x="79"  y="287" text-anchor="middle" dominant-baseline="central" style="fill:rgb(250,199,117);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">Extreme heat</text>
+<text x="79"  y="305" text-anchor="middle" dominant-baseline="central" style="fill:rgb(239,159,39);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Temp ≥ 44°C</text>
+<rect x="144" y="260" width="130" height="76" rx="8" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="209" y="287" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">OpenWeatherMap</text>
+<text x="209" y="305" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Weather API</text>
+<rect x="280" y="260" width="168" height="76" rx="8" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="364" y="283" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">≥44°C from 11am–4pm</text>
+<text x="364" y="301" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">for 3+ consecutive days</text>
+<rect x="454" y="260" width="132" height="76" rx="8" style="fill:rgb(8,80,65);stroke:rgb(93,202,165);stroke-width:0.5px;"/>
+<text x="520" y="287" text-anchor="middle" dominant-baseline="central" style="fill:rgb(159,225,203);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">30% of weekly</text>
+<text x="520" y="305" text-anchor="middle" dominant-baseline="central" style="fill:rgb(93,202,165);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">premium coverage</text>
+<rect x="592" y="260" width="68" height="76" rx="8" style="fill:rgb(99,56,6);stroke:rgb(239,159,39);stroke-width:0.5px;"/>
+<text x="626" y="298" text-anchor="middle" dominant-baseline="central" style="fill:rgb(250,199,117);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">T1</text>
+
+<!-- ── ROW 4: Bandh / curfew ── -->
+<rect x="20"  y="346" width="118" height="76" rx="8" style="fill:rgb(60,52,137);stroke:rgb(175,169,236);stroke-width:0.5px;"/>
+<text x="79"  y="369" text-anchor="middle" dominant-baseline="central" style="fill:rgb(206,203,246);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">Bandh / curfew</text>
+<text x="79"  y="387" text-anchor="middle" dominant-baseline="central" style="fill:rgb(175,169,236);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Civic shutdown</text>
+<rect x="144" y="346" width="130" height="76" rx="8" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="209" y="369" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">News API (filtered)</text>
+<text x="209" y="387" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Govt alert feeds</text>
+<rect x="280" y="346" width="168" height="76" rx="8" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="364" y="369" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Verified bandh in</text>
+<text x="364" y="387" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">worker's district</text>
+<rect x="454" y="346" width="132" height="76" rx="8" style="fill:rgb(8,80,65);stroke:rgb(93,202,165);stroke-width:0.5px;"/>
+<text x="520" y="369" text-anchor="middle" dominant-baseline="central" style="fill:rgb(159,225,203);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">50% of weekly</text>
+<text x="520" y="387" text-anchor="middle" dominant-baseline="central" style="fill:rgb(93,202,165);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">premium coverage</text>
+<rect x="592" y="346" width="68" height="76" rx="8" style="fill:rgb(121,31,31);stroke:rgb(240,149,149);stroke-width:0.5px;"/>
+<text x="626" y="384" text-anchor="middle" dominant-baseline="central" style="fill:rgb(247,193,193);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">T3</text>
+
+<!-- ── ROW 5: Flash flood ── -->
+<rect x="20"  y="432" width="118" height="76" rx="8" style="fill:rgb(12,68,124);stroke:rgb(133,183,235);stroke-width:0.5px;"/>
+<text x="79"  y="459" text-anchor="middle" dominant-baseline="central" style="fill:rgb(181,212,244);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">Flash flood</text>
+<text x="79"  y="477" text-anchor="middle" dominant-baseline="central" style="fill:rgb(133,183,235);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Zone inundation</text>
+<rect x="144" y="432" width="130" height="76" rx="8" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="209" y="455" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Flood watch API</text>
+<text x="209" y="473" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">CWC / NDMA feeds</text>
+<rect x="280" y="432" width="168" height="76" rx="8" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="364" y="451" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Red alert issued for</text>
+<text x="364" y="469" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">worker's pin code zone</text>
+<rect x="454" y="432" width="132" height="76" rx="8" style="fill:rgb(8,80,65);stroke:rgb(93,202,165);stroke-width:0.5px;"/>
+<text x="520" y="455" text-anchor="middle" dominant-baseline="central" style="fill:rgb(159,225,203);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">100% of weekly</text>
+<text x="520" y="473" text-anchor="middle" dominant-baseline="central" style="fill:rgb(93,202,165);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">premium coverage</text>
+<rect x="592" y="432" width="68" height="76" rx="8" style="fill:rgb(121,31,31);stroke:rgb(240,149,149);stroke-width:0.5px;"/>
+<text x="626" y="470" text-anchor="middle" dominant-baseline="central" style="fill:rgb(247,193,193);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">T3</text>
+
+<!-- ── ROW 6: Market Disruption (NEW) ── -->
+<rect x="20"  y="518" width="118" height="76" rx="8" style="fill:rgb(60,52,137);stroke:rgb(175,169,236);stroke-width:0.5px;"/>
+<text x="79"  y="541" text-anchor="middle" dominant-baseline="central" style="fill:rgb(206,203,246);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">Market disruption</text>
+<text x="79"  y="559" text-anchor="middle" dominant-baseline="central" style="fill:rgb(175,169,236);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Order volume crash</text>
+<text x="79"  y="575" text-anchor="middle" dominant-baseline="central" style="fill:rgb(175,169,236);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">↓ 60–80%</text>
+<rect x="144" y="518" width="130" height="76" rx="8" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="209" y="541" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Platform Signals API</text>
+<text x="209" y="559" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">(mock)</text>
+<rect x="280" y="518" width="168" height="76" rx="8" style="fill:rgb(68,68,65);stroke:rgb(180,178,169);stroke-width:0.5px;"/>
+<text x="364" y="537" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">&gt;60% drop in zone orders</text>
+<text x="364" y="555" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">sustained for 2+ hours</text>
+<text x="364" y="573" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180,178,169);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">worker active, no orders</text>
+<rect x="454" y="518" width="132" height="76" rx="8" style="fill:rgb(8,80,65);stroke:rgb(93,202,165);stroke-width:0.5px;"/>
+<text x="520" y="541" text-anchor="middle" dominant-baseline="central" style="fill:rgb(159,225,203);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">50–100% weekly</text>
+<text x="520" y="559" text-anchor="middle" dominant-baseline="central" style="fill:rgb(93,202,165);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">premium coverage</text>
+<rect x="592" y="518" width="68" height="76" rx="8" style="fill:rgb(99,56,6);stroke:rgb(239,159,39);stroke-width:0.5px;"/>
+<text x="626" y="541" text-anchor="middle" dominant-baseline="central" style="fill:rgb(250,199,117);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">T2</text>
+<text x="626" y="557" text-anchor="middle" dominant-baseline="central" style="fill:rgb(239,159,39);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:10px;">partial</text>
+<text x="626" y="571" text-anchor="middle" dominant-baseline="central" style="fill:rgb(250,199,117);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">T3</text>
+<text x="626" y="585" text-anchor="middle" dominant-baseline="central" style="fill:rgb(239,159,39);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:10px;">shutdown</text>
+
+<!-- ── LEGEND ── -->
+<rect x="20"  y="624" width="28" height="22" rx="6" style="fill:rgb(99,56,6);stroke:rgb(239,159,39);stroke-width:1px;"/>
+<text x="34"  y="635" text-anchor="middle" dominant-baseline="central" style="fill:rgb(250,249,245);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">T1</text>
+<text x="54"  y="635" dominant-baseline="central" style="fill:rgb(194,192,182);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Partial disruption</text>
+
+<rect x="192" y="624" width="28" height="22" rx="6" style="fill:rgb(99,56,6);stroke:rgb(239,159,39);stroke-width:1px;"/>
+<text x="206" y="635" text-anchor="middle" dominant-baseline="central" style="fill:rgb(250,249,245);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">T2</text>
+<text x="226" y="635" dominant-baseline="central" style="fill:rgb(194,192,182);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Significant disruption</text>
+
+<rect x="390" y="624" width="28" height="22" rx="6" style="fill:rgb(121,31,31);stroke:rgb(240,149,149);stroke-width:1px;"/>
+<text x="404" y="635" text-anchor="middle" dominant-baseline="central" style="fill:rgb(250,249,245);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:14px;font-weight:500;">T3</text>
+<text x="424" y="635" dominant-baseline="central" style="fill:rgb(194,192,182);font-family:'Anthropic Sans',-apple-system,sans-serif;font-size:12px;">Full work stoppage</text>
+
+</svg>
