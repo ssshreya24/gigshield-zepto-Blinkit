@@ -547,36 +547,24 @@ GigShield leverages mobile capabilities to improve system reliability: continuou
 
 ---
 
-## 👥 Team
+## 👥 Team — FutureForge
 
-| Name | Role |
-|---|---|
-| [Member 1] | Backend + AI/ML |
-| [Member 2] | Frontend + UI/UX |
-| [Member 3] | System Design + Integration |
-| [Member 4] | Data + Fraud Detection |
-
----
-
-## 📁 Repository Structure
-
-```
-gigshield/
-├── frontend/          # React PWA
-├── backend/           # Node.js API server
-├── ml-service/        # Python AI/ML models
-├── docs/              # Architecture diagrams, design docs
-├── mock-apis/         # Simulated platform & payment APIs
-└── README.md
-```
+| 👤 Name | 💼 Role |
+|--------|--------|
+| **Shreya Singh** | Backend + AI/ML *(Risk Model & Income Prediction)* |
+| **Prince Kumar** | Backend + AI/ML *(API Development + Model Integration)* |
+| **Kartik Srivastava** | Frontend + AI Integration *(Mobile App + API Integration)* |
+| **Ameya Tharkral** | Frontend + UI/UX *(App Design + User Experience)* |
+| **Abhinav Tripathi** | Frontend + AI Integration *(Dashboard + Data Visualization)* |
 
 ---
+
 
 ## 🔗 Links
 
-- **GitHub Repository:** [this repo]
+- **GitHub Repository:** [https://github.com/ssshreya24/gigshield-zepto-Blinkit]
 - **Demo Video (Phase 1):** [link to be added]
-- **Live Demo:** [link to be added]
+
 
 ---
 
