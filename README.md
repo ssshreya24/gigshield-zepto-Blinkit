@@ -71,7 +71,7 @@ Instant Payout Triggered (UPI / Wallet)
 ## ⚡ Parametric Triggers
 
 <p align="center">
-  <img src="gigshield_parametric_trigger_design (2).svg" width="800">
+  <img src="Insurify_parametric_trigger_design (2).svg" width="800">
 </p>
 
 The system uses *parametric triggers* to automatically detect disruptions affecting gig workers.  
@@ -79,7 +79,7 @@ Instead of manual claims, payouts are triggered based on *real-time external dat
 
 ### Additional Trigger: Platform / Market Disruption
 
-GigShield also handles large-scale platform-level disruptions that are not caused by weather or local events.
+Insurify also handles large-scale platform-level disruptions that are not caused by weather or local events.
 
 *Market Crash / Platform Disruption Trigger:*
 •⁠  ⁠Detects sudden drop in overall order volume across a zone or platform
@@ -103,7 +103,7 @@ GigShield also handles large-scale platform-level disruptions that are not cause
 → System flags a *Market Disruption Event*
 
 *Why this matters:*
-This ensures GigShield protects workers not just from environmental risks, but also from *platform-side failures*, which are equally uncontrollable.
+This ensures Insurify protects workers not just from environmental risks, but also from *platform-side failures*, which are equally uncontrollable.
 
 	⁠This makes the system more comprehensive and aligned with real-world gig economy risks.
 
@@ -121,7 +121,7 @@ This ensures GigShield protects workers not just from environmental risks, but a
 
 ## 💰 Weekly Pricing Model
 
-GigShield uses a **weekly premium structure** aligned to the gig worker's earning cycle.
+Insurify uses a **weekly premium structure** aligned to the gig worker's earning cycle.
 
 ### Base Weekly Premium Tiers
 
@@ -147,7 +147,7 @@ The AI dynamically adjusts the base premium using:
 
 ### Core AI Philosophy: Income Loss First
 
-GigShield focuses on accurate income loss prediction combined with verified external triggers, instead of relying on multiple internal signals.
+Insurify focuses on accurate income loss prediction combined with verified external triggers, instead of relying on multiple internal signals.
 
 - Predict expected earnings for a worker using historical patterns
 - Compare with actual earnings during disruption
@@ -162,7 +162,7 @@ GigShield focuses on accurate income loss prediction combined with verified exte
 
 **The Cold Start Problem**
 
-GigShield starts without real worker data. We solve this using a hybrid data strategy.
+Insurify starts without real worker data. We solve this using a hybrid data strategy.
 
 **Day 1 Data Sources:**
 - Historical weather data (IMD + OpenWeatherMap API)
@@ -178,7 +178,7 @@ GigShield starts without real worker data. We solve this using a hybrid data str
 - Replace synthetic data with real worker activity logs
 
 
-> Note: GigShield primarily relies on external signals but can optionally integrate anonymized platform-level order data (mocked or API-based) to detect economic disruptions such as market crashes.
+> Note: Insurify primarily relies on external signals but can optionally integrate anonymized platform-level order data (mocked or API-based) to detect economic disruptions such as market crashes.
 
 **New Worker Onboarding Strategy:**
 - Week 1–2: Zone-based average risk and income
@@ -188,14 +188,14 @@ GigShield starts without real worker data. We solve this using a hybrid data str
 Model improves continuously with real usage.
 
 <p align="center">
-  <img src="gigshield_aiml_full_v4.svg" width="800" alt="GigShield AI/ML Full Flow Diagram">
+  <img src="Insurify_aiml_full_v4.svg" width="800" alt="Insurify AI/ML Full Flow Diagram">
 </p>
 
 ---
 
 ### How the AI System Works (End-to-End)
 
-GigShield follows a structured AI pipeline from raw data to payout decision.
+Insurify follows a structured AI pipeline from raw data to payout decision.
 
 **Step 1: Data Collection**
 - Weather APIs (rain, heat, flood alerts)
@@ -237,14 +237,14 @@ AND (No Fraud Detected)
 → Trigger Payout
 ```
 
-> Key Insight: GigShield primarily relies on external signals but can optionally use anonymized platform-level order signals (mocked or API-based) for detecting economic disruptions such as market crashes.
+> Key Insight: Insurify primarily relies on external signals but can optionally use anonymized platform-level order signals (mocked or API-based) for detecting economic disruptions such as market crashes.
 
 ---
 
 ### Data Flow
 
 <p align="center">
-  <img src="gigshield_data_flow_expanded.svg" width="800" alt="GigShield Data Flow Diagram">
+  <img src="Insurify_data_flow_expanded.svg" width="800" alt="Insurify Data Flow Diagram">
 </p>
 
 ---
@@ -281,7 +281,7 @@ External Trigger + Worker Active + Income Gap + Fraud Check → Payout
 
 ### Fraud Detection System (Detailed Logic)
 
-GigShield ensures only genuine claims are approved using multi-layer validation.
+Insurify ensures only genuine claims are approved using multi-layer validation.
 
 **1. GPS Spoofing Detection**
 - IF (distance between consecutive GPS points > 5 km AND time < 60 sec)
@@ -315,13 +315,13 @@ Else → Claim Rejected / Flagged
 
 ## 🛡️ Adversarial Defense & Anti-Spoofing Strategy
 
-GigShield is designed to defend against coordinated fraud attacks where multiple actors attempt to exploit parametric triggers using GPS spoofing or synchronized behavior.
+Insurify is designed to defend against coordinated fraud attacks where multiple actors attempt to exploit parametric triggers using GPS spoofing or synchronized behavior.
 
 ---
 
 ## 1. Differentiation: Genuine Worker vs Spoofed Actor
 
-GigShield does not rely on GPS alone. Instead, it uses **multi-signal verification**:
+Insurify does not rely on GPS alone. Instead, it uses **multi-signal verification**:
 
 - **GPS + movement continuity** — real path vs static spoof
 - **Speed patterns** — real delivery vs unrealistic jumps
@@ -337,7 +337,7 @@ GigShield does not rely on GPS alone. Instead, it uses **multi-signal verificati
 
 ## 2. Advanced Data Signals (Beyond GPS)
 
-To detect coordinated fraud rings, GigShield analyzes:
+To detect coordinated fraud rings, Insurify analyzes:
 
 | Signal | Description |
 |---|---|
@@ -358,7 +358,7 @@ IF (multiple users show identical patterns across location, timing, and behavior
 
 ## 3. Coordinated Attack Detection
 
-GigShield introduces a **Fraud Graph Model**:
+Insurify introduces a **Fraud Graph Model**:
 
 - **Nodes** = workers
 - **Edges** = shared behavior patterns (location, timing, IP, device)
@@ -366,13 +366,13 @@ GigShield introduces a **Fraud Graph Model**:
 If a cluster of highly similar nodes emerges:
 → System flags a **fraud ring**
 
-This enables GigShield to detect fraud at a **network level**, not just at an individual user level.
+This enables Insurify to detect fraud at a **network level**, not just at an individual user level.
 
 ---
 
 ## 4. UX Balance: Protecting Honest Workers
 
-GigShield avoids false rejections using a **tiered response system**:
+Insurify avoids false rejections using a **tiered response system**:
 
 | Suspicion Level | Action |
 |---|---|
@@ -397,7 +397,7 @@ GigShield avoids false rejections using a **tiered response system**:
 
 ## 🔐 Final Principle
 
-GigShield treats fraud as a **dynamic adversarial problem**, not a static rule-based check.
+Insurify treats fraud as a **dynamic adversarial problem**, not a static rule-based check.
 
 This ensures resilience against:
 
@@ -441,7 +441,7 @@ This ensures resilience against:
 **Phase 1 Focus:**
 We intentionally limit scope to weather-based triggers and a simplified AI pipeline to demonstrate core system feasibility within hackathon constraints.
 
-For Phase 1, GigShield focuses on building a working prototype with limited but critical functionality.
+For Phase 1, Insurify focuses on building a working prototype with limited but critical functionality.
 
 **Included in MVP:**
 - Weather-based parametric trigger (rain/flood)
@@ -471,7 +471,7 @@ To demonstrate end-to-end automated claim flow, income loss detection, and trigg
 - Push notifications — instant alerts for disruptions, risk warnings, payout confirmation
 - Matches real user behavior — delivery workers already use mobile apps (Zepto, Blinkit, Swiggy)
 
-GigShield leverages mobile capabilities to improve system reliability: continuous GPS tracking prevents spoofing, activity tracking ensures genuine worker participation, and device-level validation strengthens claim authenticity.
+Insurify leverages mobile capabilities to improve system reliability: continuous GPS tracking prevents spoofing, activity tracking ensures genuine worker participation, and device-level validation strengthens claim authenticity.
 
 ---
 
@@ -543,7 +543,7 @@ GigShield leverages mobile capabilities to improve system reliability: continuou
 - [ ] Optimize AI models with test data
 - [ ] Prepare final demo + pitch presentation
 
-**Final Outcome:** By the end of Phase 3, GigShield will demonstrate real-time disruption detection, accurate income loss prediction, automated claim and payout system, and strong fraud prevention using mobile + AI.
+**Final Outcome:** By the end of Phase 3, Insurify will demonstrate real-time disruption detection, accurate income loss prediction, automated claim and payout system, and strong fraud prevention using mobile + AI.
 
 ---
 
@@ -562,7 +562,7 @@ GigShield leverages mobile capabilities to improve system reliability: continuou
 
 ## 🔗 Links
 
-- **GitHub Repository:** [https://github.com/ssshreya24/gigshield-zepto-Blinkit]
+- **GitHub Repository:** [https://github.com/ssshreya24/GigShield-zepto-Blinkit]
 - **Demo Video (Phase 1):** [link to be added]
 
 
