@@ -1,4 +1,4 @@
-# 🛡️ GigShield — AI-Powered Parametric Insurance for Q-Commerce Delivery Workers
+# 🛡️ Insurify — AI-Powered Parametric Insurance for Q-Commerce Delivery Workers
 
 > **Guidewire DEVTrails 2026 | University Hackathon**
 > Phase 1 Submission | Team: FutureForge
@@ -7,7 +7,7 @@
 
 ## 🎯 Our Idea
 
-**GigShield** is an AI-enabled parametric insurance platform that automatically detects external disruptions and compensates Q-Commerce delivery workers (Zepto/Blinkit) for income loss — with **zero manual claims**.
+**Insurify** is an AI-enabled parametric insurance platform that automatically detects external disruptions and compensates Q-Commerce delivery workers (Zepto/Blinkit) for income loss — with **zero manual claims**.
 
 ---
 
