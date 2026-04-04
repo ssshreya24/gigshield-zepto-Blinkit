@@ -41,7 +41,7 @@ Q-commerce delivery workers face a specific set of structural risks that make th
 - No existing financial safety net for disruption-based income loss
 
 **Scenario Example:**
-> Ravi is a Zepto delivery partner in Bangalore. On a Tuesday, heavy rainfall triggers a flood alert in his zone. His dark store halts operations. Despite being active and ready to work, Ravi receives zero orders for 6 hours and loses ~₹400. Under GigShield, the system detects the rainfall event, verifies Ravi was active, and automatically processes a payout — no claim needed.
+> Ravi is a Zepto delivery partner in Bangalore. On a Tuesday, heavy rainfall triggers a flood alert in his zone. His dark store halts operations. Despite being active and ready to work, Ravi receives zero orders for 6 hours and loses ~₹400. Under Insurify, the system detects the rainfall event, verifies Ravi was active, and automatically processes a payout — no claim needed.
 
 ---
 
