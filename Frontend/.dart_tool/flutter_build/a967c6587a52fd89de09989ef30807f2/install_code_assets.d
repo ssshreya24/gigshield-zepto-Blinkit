@@ -1,0 +1,1 @@
+ /Users/admin30/Downloads/gigshield/Frontend/.dart_tool/flutter_build/a967c6587a52fd89de09989ef30807f2/native_assets.json:  /Users/admin30/Downloads/gigshield/Frontend/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/objective_c.dylib

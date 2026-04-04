@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: gigshield_db
+    restart: always
+    environment:
+      POSTGRES_USER: gigshield_user
+      POSTGRES_PASSWORD: gigshield_pass
+      POSTGRES_DB: gigshield
+    ports:
+      - "5432:5432"
+    volumes:
+      - gigshield_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gigshield_user -d gigshield"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: gigshield_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: postgres
+      DB_USER: gigshield_user
+      DB_PASSWORD: gigshield_pass
+      DB_NAME: gigshield
+      DB_PORT: 5432
+      PORT: 3000
+      WEATHER_API_KEY: e5662aa8fdcc219ae6d83e1e588ca6fd
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+volumes:
+  gigshield_data:
