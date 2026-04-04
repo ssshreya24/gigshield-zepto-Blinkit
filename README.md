@@ -71,7 +71,7 @@ Instant Payout Triggered (UPI / Wallet)
 ## ⚡ Parametric Triggers
 
 <p align="center">
-  <img src="Insurify_parametric_trigger_design (2).svg" width="800">
+  <img src="gigshield_parametric_trigger_design (2).svg" width="800">
 </p>
 
 The system uses *parametric triggers* to automatically detect disruptions affecting gig workers.  
@@ -188,7 +188,7 @@ Insurify starts without real worker data. We solve this using a hybrid data stra
 Model improves continuously with real usage.
 
 <p align="center">
-  <img src="Insurify_aiml_full_v4.svg" width="800" alt="Insurify AI/ML Full Flow Diagram">
+  <img src="gigshield_aiml_full_v4.svg" width="800" alt="GigShield AI/ML Full Flow Diagram">
 </p>
 
 ---
@@ -244,7 +244,7 @@ AND (No Fraud Detected)
 ### Data Flow
 
 <p align="center">
-  <img src="Insurify_data_flow_expanded.svg" width="800" alt="Insurify Data Flow Diagram">
+  <img src="gigshield_data_flow_expanded.svg" width="800" alt="GigShield Data Flow Diagram">
 </p>
 
 ---
