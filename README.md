@@ -579,7 +579,7 @@ The platform adopts a sustainable and flexible pricing strategy:
 
 ### 📎 Access the Pitch Deck
 
-👉 [View Pitch Deck (PPT)](YOUR_PPT_LINK_HERE)
+👉 [View Pitch Deck (PPT)](https://drive.google.com/file/d/13ZMh46C9C_SH4gx_5-6PtbdgXiWXk6WB/view?usp=sharing)
 
 ---
 
