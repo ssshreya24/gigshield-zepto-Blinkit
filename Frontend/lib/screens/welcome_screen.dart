@@ -125,39 +125,44 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     );
   }
 
-  Widget _welcomeView() => Padding(
-    padding: const EdgeInsets.all(24),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 20),
-        Row(children: [
-          Container(
-            width: 52, height: 52,
-            decoration: BoxDecoration(
-              color: navy,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [BoxShadow(
-                color:  navy.withOpacity(0.35),
-                blurRadius: 16, offset: const Offset(0, 6))],
-            ),
-            child: const Icon(Icons.shield_rounded,
-              color: Colors.white, size: 30),
-          ),
-          const SizedBox(width: 12),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Insurify',
-                style: TextStyle(color: navy, fontSize: 24,
-                  fontWeight: FontWeight.w900)),
-              Text('Income Protection',
-                style: TextStyle(color: gray, fontSize: 13)),
-            ],
-          ),
-        ]),
+  Widget _welcomeView() => LayoutBuilder(
+    builder: (context, constraints) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
+          child: IntrinsicHeight(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 20),
+                Row(children: [
+                  Container(
+                    width: 52, height: 52,
+                    decoration: BoxDecoration(
+                      color: navy,
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [BoxShadow(
+                        color:  navy.withOpacity(0.35),
+                        blurRadius: 16, offset: const Offset(0, 6))],
+                    ),
+                    child: const Icon(Icons.shield_rounded,
+                      color: Colors.white, size: 30),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Insurify',
+                        style: TextStyle(color: navy, fontSize: 24,
+                          fontWeight: FontWeight.w900)),
+                      Text('Income Protection',
+                        style: TextStyle(color: gray, fontSize: 13)),
+                    ],
+                  ),
+                ]),
 
-        const Spacer(),
+                const Spacer(),
 
         RichText(
           text: const TextSpan(
@@ -227,8 +232,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               color: gray.withOpacity(0.7), fontSize: 12)),
         ),
         const SizedBox(height: 10),
-      ],
-    ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
   );
 
   Widget _signInView() => SingleChildScrollView(

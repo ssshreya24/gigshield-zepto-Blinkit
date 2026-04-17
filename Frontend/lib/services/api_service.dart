@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
-// Configure via --dart-define=BASE_URL=http://192.168.x.x:3000
-const String BASE_URL = String.fromEnvironment(
+final String BASE_URL = const String.fromEnvironment(
   'BASE_URL',
-  defaultValue: 'http://192.168.0.9:3000',
-);
+  defaultValue: '',
+).isNotEmpty ? const String.fromEnvironment('BASE_URL') 
+             : (kIsWeb ? 'http://localhost:3000' : 'http://192.168.0.9:3000');
 
 class ApiService {
 
