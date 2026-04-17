@@ -588,7 +588,7 @@ The platform adopts a sustainable and flexible pricing strategy:
 - **GitHub Repository:** https://github.com/ssshreya24/gigshield-zepto-Blinkit
 - **Demo Video (Phase 1):** https://youtu.be/62uDJHYd98Q
 - **Demo Video (Phase 2):** https://youtu.be/vQ5CuuTpXas?si=_DFWjGHROXphbOib
-- **Demo Video (Phase 3):** 
+- **Demo Video (Phase 3):** https://youtu.be/viU70i6HcAQ
 - **Live Backend:** https://insurify-backend.onrender.com/health
 
 ---
