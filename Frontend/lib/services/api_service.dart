@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 // Configure via --dart-define=BASE_URL=http://192.168.x.x:3000
 const String BASE_URL = String.fromEnvironment(
   'BASE_URL',
-  defaultValue: 'http://localhost:3000',
+  defaultValue: 'http://192.168.0.9:3000',
 );
 
 class ApiService {
