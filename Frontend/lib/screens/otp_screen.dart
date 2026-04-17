@@ -268,6 +268,25 @@ class _OtpScreenState extends State<OtpScreen>
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
+                // Demo hint
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: gold.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: gold.withOpacity(0.4)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.info_outline_rounded, color: gold, size: 16),
+                      SizedBox(width: 8),
+                      Text('Demo purpose: Use OTP 123456', 
+                        style: TextStyle(color: navy, fontSize: 13, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
 
                 const SizedBox(height: 40),
 

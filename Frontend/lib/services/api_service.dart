@@ -129,15 +129,16 @@ class ApiService {
   }
 
   // ── Fire demo trigger ────────────────────────────────────
-  static Future<void> fireDemoTrigger({
+  static Future<Map<String, dynamic>> fireDemoTrigger({
     required String zone,
     String type     = 'heavy_rain',
     String severity = 'T2',
     int    value    = 85,
     bool forceFraud = false,
+    int? workerId,
   }) async {
     try {
-      await http.post(
+      final res = await http.post(
         Uri.parse('$BASE_URL/demo/trigger'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
@@ -146,10 +147,29 @@ class ApiService {
           'severity':    severity,
           'value':       value,
           'force_fraud': forceFraud,
+          if (workerId != null) 'worker_id': workerId,
         }),
       );
+      if (res.statusCode == 200) {
+        return json.decode(res.body) as Map<String, dynamic>;
+      }
+      return {};
     } catch (e) {
-      throw Exception('Trigger failed.');
+      return {};
+    }
+  }
+
+  // ── Check real-time weather for a zone (for auto-trigger) ──
+  static Future<Map<String, dynamic>> checkWeather(String zone) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$BASE_URL/api/weather-check/${Uri.encodeComponent(zone)}'));
+      if (res.statusCode == 200) {
+        return json.decode(res.body) as Map<String, dynamic>;
+      }
+      return {'disruption': false};
+    } catch (_) {
+      return {'disruption': false};
     }
   }
 

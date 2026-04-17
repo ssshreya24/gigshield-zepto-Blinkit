@@ -358,27 +358,55 @@ class _PolicyTabState extends State<PolicyTab> {
               onTap: () async {
                 Navigator.pop(context);
 
-                // Fire on backend
-                await ApiService.fireDemoTrigger(
-                  zone:       zone,
-                  type:       t['type'] as String,
-                  severity:   t['sev']  as String,
-                  value:      85,
-                  forceFraud: t['forceFraud'] == true,
-                );
+                // Fire on backend AND get the fraud/weather response
+                final pctMap = {'T1': 0.25, 'T2': 0.50, 'T3': 1.00};
+                final pct = pctMap[t['sev'] as String] ?? 0.50;
+                final amount = (maxP * pct).round();
 
-                // Open 5-screen TriggerFlowScreen
+                Map<String, dynamic> triggerData = {
+                  'trigger_type': t['type'],
+                  'severity':     t['sev'],
+                  'zone':         zone,
+                  'name':         (t['label'] as String).split('(').first.trim(),
+                  'label':        t['label'],
+                  'value':        85,
+                  'amount':       amount,
+                };
+
+                try {
+                  final body = await ApiService.fireDemoTrigger(
+                    zone:       zone,
+                    type:       t['type'] as String,
+                    severity:   t['sev']  as String,
+                    value:      85,
+                    forceFraud: t['forceFraud'] == true,
+                    workerId:   widget.workerId,
+                  );
+
+                  // Merge real claim data from backend (fraud score, weather check, behavioral profile)
+                  final claim = body['claim'] as Map?;
+                  if (claim != null) {
+                    triggerData = {
+                      ...triggerData,
+                      'amount':             claim['amount'] ?? triggerData['amount'],
+                      'fraud_flag':         claim['fraud_flag'] ?? false,
+                      'fraud_reason':       claim['fraud_reason'],
+                      'claim_status':       claim['status'],
+                      'fraud_score':        claim['fraud_score'],
+                      'fraud_probability':  claim['fraud_probability'],
+                      'behavioral_profile': claim['behavioral_profile'],
+                    };
+                  }
+                } catch (_) {
+                  // Network unavailable — use mock data, demo still works
+                }
+
+                // Open the SAME Razorpay-branded TriggerAlertFlow as the popup trigger
                 if (context.mounted) {
                   Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => TriggerFlowScreen(
-                      triggerLabel: t['label'] as String,
-                      triggerType:  t['type']  as String,
-                      severity:     t['sev']   as String,
-                      zone:         zone,
-                      workerName:   policy?['name']  ?? 'Worker',
-                      upiId:        upiId,
-                      maxPayout:    maxP.toInt(),
-                      dailyIncome:  income.toInt(),
+                    builder: (_) => TriggerAlertFlow(
+                      triggers: [triggerData],
+                      policy:   policy,
                     )));
                 }
               },

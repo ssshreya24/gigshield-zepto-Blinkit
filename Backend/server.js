@@ -32,6 +32,76 @@ app.get('/health', async (req, res) => {
   res.json({ status: 'ok', db_time: db.rows[0].now });
 });
 
+// ─── WEATHER CHECK (for auto-trigger decision) ──────────
+app.get('/api/weather-check/:zone', async (req, res) => {
+  try {
+    const zone = decodeURIComponent(req.params.zone);
+    const weatherKey = process.env.WEATHER_API_KEY || process.env.OPENWEATHER_API_KEY;
+    if (!weatherKey) return res.json({ disruption: false, reason: 'No weather API key' });
+
+    // Geocode zone to coords
+    const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(zone + ', India')}&limit=1&appid=${weatherKey}`;
+    const geoRes = await require('axios').get(geoUrl);
+    const coords = geoRes.data?.[0] || { lat: 12.9716, lon: 77.5946 };
+
+    // Fetch current weather
+    const wxUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${coords.lat}&lon=${coords.lon}&appid=${weatherKey}&units=metric`;
+    const wxRes = await require('axios').get(wxUrl);
+    const w = wxRes.data;
+
+    const rainfall    = w.rain?.['1h'] ?? 0;
+    const temperature = w.main?.temp ?? 25;
+    const humidity    = w.main?.humidity ?? 50;
+    const windSpeed   = w.wind?.speed ?? 0;
+    const weatherId   = w.weather?.[0]?.id ?? 800;
+    const description = w.weather?.[0]?.description ?? 'clear';
+
+    // Determine which disruptions are active based on real weather
+    const disruptions = [];
+
+    // Heavy rain: >5mm/hr rainfall OR weather code 500-531 (rain/drizzle)
+    if (rainfall >= 5 || (weatherId >= 500 && weatherId <= 531)) {
+      disruptions.push({ type: 'heavy_rain', severity: rainfall >= 15 ? 'T3' : 'T2', value: Math.round(rainfall) });
+    }
+
+    // Flood alert: weather code 900-910 OR extreme rainfall >25mm
+    if ((weatherId >= 900 && weatherId <= 910) || rainfall >= 25) {
+      disruptions.push({ type: 'flood_alert', severity: 'T3', value: Math.round(rainfall) });
+    }
+
+    // Extreme heat: temp > 40°C
+    if (temperature >= 40) {
+      disruptions.push({ type: 'extreme_heat', severity: temperature >= 45 ? 'T3' : 'T1', value: Math.round(temperature) });
+    }
+
+    // Severe AQI: fetch air pollution data
+    try {
+      const aqiUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${coords.lat}&lon=${coords.lon}&appid=${weatherKey}`;
+      const aqiRes = await require('axios').get(aqiUrl);
+      const aqiLevel = aqiRes.data?.list?.[0]?.main?.aqi ?? 1;
+      // OWM AQI: 4=Poor, 5=VeryPoor → trigger
+      if (aqiLevel >= 4) {
+        disruptions.push({ type: 'severe_aqi', severity: aqiLevel >= 5 ? 'T3' : 'T2', value: aqiLevel * 75 });
+      }
+    } catch (_) {}
+
+    // High wind (cyclone risk): wind > 60 km/h
+    if (windSpeed * 3.6 >= 60) {
+      disruptions.push({ type: 'cyclone', severity: 'T3', value: Math.round(windSpeed * 3.6) });
+    }
+
+    res.json({
+      zone,
+      disruption: disruptions.length > 0,
+      disruptions,
+      weather: { rainfall, temperature, humidity, windSpeed, weatherId, description },
+    });
+  } catch (err) {
+    console.error('Weather check error:', err.message);
+    res.json({ disruption: false, disruptions: [], reason: err.message });
+  }
+});
+
 // ─── WORKER REGISTRATION ─────────────────────────────────
 app.post('/register', async (req, res) => {
   try {
@@ -328,23 +398,43 @@ app.post('/demo/trigger', async (req, res) => {
       try {
         const weatherKey = process.env.WEATHER_API_KEY || process.env.OPENWEATHER_API_KEY;
         if (weatherKey) {
-          const fetch = require('node-fetch') || globalThis.fetch;
+          const axios = require('axios');
+          // Fetch current weather
           const wxUrl = `https://api.openweathermap.org/data/2.5/weather?q=${z},IN&appid=${weatherKey}&units=metric`;
-          const wxRes = await (typeof fetch === 'function' ? fetch(wxUrl) : Promise.reject());
-          const wx    = await wxRes.json();
+          const wxRes = await axios.get(wxUrl);
+          const wx    = wxRes.data;
+          
           const rain  = wx?.rain?.['1h'] || wx?.rain?.['3h'] || 0;
           const temp  = wx?.main?.temp || 25;
+          const weatherId = wx?.weather?.[0]?.id || 800;
 
           if (t === 'heavy_rain' && rain < 2) {
             fraudScore += 30;
-            fraudReason.push(`Weather cross-check: no rain detected (${rain}mm) but heavy_rain claimed`);
+            fraudReason.push(`Weather API cross-check: No rain detected (${rain}mm) but ${t} claimed.`);
           }
           if (t === 'extreme_heat' && temp < 35) {
             fraudScore += 25;
-            fraudReason.push(`Weather cross-check: temp ${temp}°C but extreme_heat claimed`);
+            fraudReason.push(`Weather API cross-check: Temp ${temp}°C is normal, but ${t} claimed.`);
+          }
+          if (t === 'flood_alert' && rain < 10 && !(weatherId >= 900 && weatherId <= 910)) {
+            fraudScore += 35;
+            fraudReason.push(`Weather API cross-check: No flooding indicators (rain ${rain}mm) but ${t} claimed.`);
+          }
+          if (t === 'severe_aqi') {
+            try {
+              const aqiUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${wx.coord.lat}&lon=${wx.coord.lon}&appid=${weatherKey}`;
+              const aqiRes = await axios.get(aqiUrl);
+              const aqiLevel = aqiRes.data?.list?.[0]?.main?.aqi ?? 1;
+              if (aqiLevel < 4) { // 1=Good, 2=Fair, 3=Moderate
+                fraudScore += 25;
+                fraudReason.push(`Weather API cross-check: Safe air quality (OWM AQI Level ${aqiLevel}) but ${t} claimed.`);
+              }
+            } catch (_) {}
           }
         }
-      } catch (_) { /* weather check failed - skip */ }
+      } catch (err) {
+        console.error('Weather fraud verification failed:', err.message);
+      }
 
       // Layer 2: Individual Behavioral Profiling (per-worker analysis)
       let behaviorProfile = {};

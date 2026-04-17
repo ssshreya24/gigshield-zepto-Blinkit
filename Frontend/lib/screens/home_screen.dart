@@ -119,33 +119,76 @@ class _HomeScreenState extends State<HomeScreen>
     return null;
   }
 
-  // ── Auto trigger: ALWAYS fires once after login for demo ──
+  // ── Auto trigger logic ─────────────────────────────────────
+  // First launch: fire one demo trigger unconditionally (for wow-factor)
+  // After that: only fire if the weather API confirms a real disruption
   bool _demoFiredThisSession = false;
 
   void _scheduleDemoTrigger() {
     if (_demoFiredThisSession) return;
-    final delay = 5 + Random().nextInt(6); // 5–10 s
-    _demoTimer = Timer(Duration(seconds: delay), _fireDemoTrigger);
+    final delay = 5 + Random().nextInt(6); // 5–10s
+    _demoTimer = Timer(Duration(seconds: delay), _checkAndFireTrigger);
   }
 
-  Future<void> _fireDemoTrigger({bool forceFraud = false}) async {
+  Future<void> _checkAndFireTrigger() async {
+    if (!mounted || _demoFiredThisSession) return;
+    _demoFiredThisSession = true;
+
+    final prefs = await SharedPreferences.getInstance();
+    final firstFired = prefs.getBool('demo_first_fired') ?? false;
+
+    if (!firstFired) {
+      // ── FIRST EVER LAUNCH: fire one demo trigger unconditionally ──
+      await prefs.setBool('demo_first_fired', true);
+      await _fireDemoTrigger();
+      return;
+    }
+
+    // ── SUBSEQUENT LAUNCHES: check real weather API first ──
+    final zone = policy?['zone'] as String? ?? 'Koramangala';
+    final weatherData = await ApiService.checkWeather(zone);
+
+    if (weatherData['disruption'] == true) {
+      // Real disruption detected — pick the first matching disruption
+      final disruptions = weatherData['disruptions'] as List? ?? [];
+      if (disruptions.isNotEmpty) {
+        final d = disruptions[0] as Map<String, dynamic>;
+        await _fireDemoTrigger(
+          overrideType:     d['type'] as String?,
+          overrideSeverity: d['severity'] as String?,
+          overrideValue:    d['value'] as int?,
+        );
+      }
+    }
+    // No disruption → no popup. Silent. Realistic.
+  }
+
+  Future<void> _fireDemoTrigger({
+    bool forceFraud = false,
+    String? overrideType,
+    String? overrideSeverity,
+    int? overrideValue,
+  }) async {
     if (!mounted) return;
-    final pick = _demos[Random().nextInt(_demos.length)];
+    final pick = _demos.firstWhere(
+      (d) => d['type'] == overrideType,
+      orElse: () => _demos[Random().nextInt(_demos.length)],
+    );
     final zone = policy?['zone'] as String? ?? 'Your Zone';
+    final type     = overrideType     ?? pick['type'] as String;
+    final severity = overrideSeverity ?? pick['severity'] as String;
+    final value    = overrideValue    ?? pick['value'] as int;
 
     Map<String, dynamic> triggerData = {
-      'trigger_type': pick['type'],
-      'severity':     pick['severity'],
+      'trigger_type': type,
+      'severity':     severity,
       'zone':         zone,
       'label':        pick['label'],
       'icon':         pick['icon'],
-      'value':        pick['value'],
+      'value':        value,
       'worker_id':    widget.workerId,
-      'amount':       _payoutForSeverity(pick['severity'] as String),
+      'amount':       _payoutForSeverity(severity),
     };
-
-    // Mark trigger as fired so it won't re-run if HomeScreen is rebuilt
-    _demoFiredThisSession = true;
 
     try {
       final res = await http.post(
@@ -153,17 +196,16 @@ class _HomeScreenState extends State<HomeScreen>
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'zone':        zone,
-          'type':        pick['type'],
-          'severity':    pick['severity'],
-          'value':       pick['value'],
-          'worker_id':   widget.workerId, 
-          'force_fraud': forceFraud, // ← true if triggered via Manual 'Trigger Fraud'
+          'type':        type,
+          'severity':    severity,
+          'value':       value,
+          'worker_id':   widget.workerId,
+          'force_fraud': forceFraud,
         }),
       );
       if (res.statusCode == 200) {
         final body = json.decode(res.body) as Map<String, dynamic>;
         final claim = body['claim'] as Map?;
-        // Merge real claim data from backend response
         triggerData = {
           ...triggerData,
           if (claim != null) ...{

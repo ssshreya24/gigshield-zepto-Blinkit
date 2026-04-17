@@ -597,25 +597,30 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
         const SizedBox(height: 16),
 
         // Claim Now button
+        // Claim Now button
         GestureDetector(
           onTap: () {
             HapticFeedback.mediumImpact();
-            setState(() => _screen = 3);
-            _runPayoutScreen();
+            if (_isFraud) {
+              setState(() => _screen = 4); // skip payout, go straight to result
+            } else {
+              setState(() => _screen = 3);
+              _runPayoutScreen();
+            }
           },
           child: Container(
             width:   double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 17),
             decoration: BoxDecoration(
-              color:        gold,
+              color:        _isFraud ? const Color(0xFFFF5252) : gold,
               borderRadius: BorderRadius.circular(14),
               boxShadow: [BoxShadow(
-                color:      gold.withOpacity(0.4),
+                color:      (_isFraud ? const Color(0xFFFF5252) : gold).withOpacity(0.4),
                 blurRadius: 20,
                 offset:     const Offset(0, 8))]),
             child: Center(child: Text(
-              'Claim ₹$_totalPayout Now →',
-              style: const TextStyle(color: Color(0xFF0D1829),
+              _isFraud ? 'View Claim Status →' : 'Claim ₹$_totalPayout Now →',
+              style: TextStyle(color: _isFraud ? Colors.white : const Color(0xFF0D1829),
                 fontSize: 16, fontWeight: FontWeight.w900))),
           ),
         ),
@@ -767,9 +772,11 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
         fontWeight: active ? FontWeight.w700 : FontWeight.w400)),
     ]);
 
-  // ── Screen 5: Success ───────────────────────────────────────
+  // ── Screen 5: Success / Failure Result ───────────────────────────────────────
   Widget _successScreen() {
     final upi = widget.policy?['upi_id'] ?? 'worker@upi';
+    final color = _isFraud ? const Color(0xFFFF5252) : const Color(0xFF00C853);
+    final icon  = _isFraud ? Icons.gpp_bad_rounded : Icons.check_rounded;
 
     return SingleChildScrollView(
       key: const ValueKey('success'),
@@ -784,61 +791,70 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
           decoration: BoxDecoration(
             color:        Colors.white.withOpacity(0.06),
             borderRadius: BorderRadius.circular(8)),
-          child: const Text('Success Screen',
-            style: TextStyle(color: Colors.white38,
+          child: Text(_isFraud ? 'Claim Review Screen' : 'Success Screen',
+            style: const TextStyle(color: Colors.white38,
               fontSize: 11, letterSpacing: 0.8))),
         const SizedBox(height: 32),
 
-        // Big checkmark
+        // Big icon
         Container(
           width: 100, height: 100,
           decoration: BoxDecoration(
-            color:  const Color(0xFF00C853).withOpacity(0.12),
+            color:  color.withOpacity(0.12),
             shape:  BoxShape.circle,
             border: Border.all(
-              color: const Color(0xFF00C853).withOpacity(0.4),
+              color: color.withOpacity(0.4),
               width: 2)),
-          child: const Icon(Icons.check_rounded,
-            color: Color(0xFF00C853), size: 54)),
+          child: Icon(icon, color: color, size: 54)),
 
         const SizedBox(height: 20),
 
-        Text('₹$_totalPayout credited via Razorpay',
-          style: const TextStyle(color: Color(0xFF00C853),
+        Text(_isFraud ? 'Fraud Detected. Payout Held.' : '₹$_totalPayout credited via Razorpay',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: color,
             fontSize: 18, fontWeight: FontWeight.w800)),
 
         const SizedBox(height: 4),
-        Text(upi, style: const TextStyle(
-          color: Colors.white54, fontSize: 13)),
+        Text(_isFraud ? 'Your claim has been flagged for manual administrative review.' : upi,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white54, fontSize: 13)),
+        
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFF2E86DE).withOpacity(0.15),
-            borderRadius: BorderRadius.circular(99)),
-          child: const Text('Powered by Razorpay',
-            style: TextStyle(color: Color(0xFF2E86DE),
-              fontSize: 11, fontWeight: FontWeight.w700))),
+        if (!_isFraud)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2E86DE).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(99)),
+            child: const Text('Powered by Razorpay',
+              style: TextStyle(color: Color(0xFF2E86DE),
+                fontSize: 11, fontWeight: FontWeight.w700))),
 
         const SizedBox(height: 24),
 
         _darkCard(child: Column(children: [
-          _sumRow('✅ Claim ID', _claimId, const Color(0xFF00C853)),
+          _sumRow('Claim ID', _claimId, Colors.white70),
           _div(),
-          _sumRow('Transaction', _txnId, Colors.white70),
-          _div(),
+          if (!_isFraud) ...[
+            _sumRow('Transaction', _txnId, Colors.white70),
+            _div(),
+          ],
           _sumRow('Trigger', _triggerName, Colors.white70),
           _div(),
           _sumRow('Zone', _zone, Colors.white70),
           _div(),
           _sumRow('Amount', '₹$_totalPayout', gold),
           _div(),
-          _sumRow('Gateway', 'Razorpay (Test Mode)', const Color(0xFF2E86DE)),
-          _div(),
-          _sumRow('Method', 'UPI Instant Payout', Colors.white70),
-          _div(),
-          _sumRow('Status', '✅ Credited',
-            const Color(0xFF00C853)),
+          if (_isFraud) ...[
+            _sumRow('Fraud Score', '${widget.triggers.firstOrNull?['fraud_score'] ?? '—'}/100', const Color(0xFFFF6D00)),
+            _div(),
+          ] else ...[
+            _sumRow('Gateway', 'Razorpay (Test Mode)', const Color(0xFF2E86DE)),
+            _div(),
+            _sumRow('Method', 'UPI Instant Payout', Colors.white70),
+            _div(),
+          ],
+          _sumRow('Status', _isFraud ? '🕒 Under Review' : '✅ Credited', color),
         ])),
 
         const SizedBox(height: 32),
@@ -849,9 +865,10 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
             final prefs = await SharedPreferences.getInstance();
             final wid = prefs.getInt('worker_id') ?? 1;
             if (!context.mounted) return;
+            // Go back to claims tab if fraud, home otherwise
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (_) => HomeScreen(workerId: wid, initialTab: 1)),
+              MaterialPageRoute(builder: (_) => HomeScreen(workerId: wid, initialTab: _isFraud ? 2 : 1)),
               (route) => false,
             );
           },
