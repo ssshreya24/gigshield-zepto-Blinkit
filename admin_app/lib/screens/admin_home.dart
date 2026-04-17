@@ -9,7 +9,6 @@ import 'dashboard_tab.dart';
 import 'workers_tab.dart';
 import 'claims_tab.dart';
 import 'analytics_tab.dart';
-import 'zones_tab.dart';        // ← NEW IMPORT
 import 'admin_login.dart';
 
 class AdminHome extends StatefulWidget {
@@ -30,14 +29,12 @@ class _AdminHomeState extends State<AdminHome>
   int _tab = 0;
   late AnimationController _tabAnim;
 
-  // ── Tab definitions ──────────────────────────────────────
-  // Added 'Zones' as the 5th tab
+  // ── Tab definitions ────────────────────────────────
   final List<Map<String, dynamic>> _tabs = [
-    {'label': 'Dashboard', 'icon': Icons.home_outlined,           'aicon': Icons.home_rounded},
-    {'label': 'Workers',   'icon': Icons.people_outline,          'aicon': Icons.people_rounded},
-    {'label': 'Claims',    'icon': Icons.receipt_long_outlined,   'aicon': Icons.receipt_long_rounded},
-    {'label': 'Analytics', 'icon': Icons.bar_chart_outlined,      'aicon': Icons.bar_chart_rounded},
-    {'label': 'Zones',     'icon': Icons.location_on_outlined,    'aicon': Icons.location_on_rounded},
+    {'label': 'Dashboard',  'icon': Icons.home_outlined,          'aicon': Icons.home_rounded},
+    {'label': 'Workers',    'icon': Icons.people_outline,         'aicon': Icons.people_rounded},
+    {'label': 'Claims',     'icon': Icons.receipt_long_outlined,  'aicon': Icons.receipt_long_rounded},
+    {'label': 'Analytics',  'icon': Icons.bar_chart_outlined,     'aicon': Icons.bar_chart_rounded},
   ];
 
   @override
@@ -71,12 +68,11 @@ class _AdminHomeState extends State<AdminHome>
 
   Widget _buildTab() {
     switch (_tab) {
-      case 0: return const DashboardTab();
+      case 0: return DashboardTab();
       case 1: return const WorkersTab();
       case 2: return const ClaimsTab();
       case 3: return const AnalyticsTab();
-      case 4: return ZonesTab();                 // ← NEW (no const — has Timer)
-      default: return const DashboardTab();
+      default: return DashboardTab();
     }
   }
 
@@ -119,8 +115,6 @@ class _AdminHomeState extends State<AdminHome>
               ...List.generate(_tabs.length, (i) {
                 final active = _tab == i;
                 final item   = _tabs[i];
-                // Zones gets a special red dot when there are HIGH-risk zones
-                final isZones = i == 4;
                 return Expanded(
                   child: GestureDetector(
                     onTap: () => _switchTab(i),
@@ -170,17 +164,6 @@ class _AdminHomeState extends State<AdminHome>
                             ],
                           ),
                         ),
-                        // Zones alert dot
-                        if (isZones)
-                          Positioned(
-                            top:   4, right: 4,
-                            child: Container(
-                              width: 7, height: 7,
-                              decoration: const BoxDecoration(
-                                color: Colors.redAccent,
-                                shape: BoxShape.circle),
-                            ),
-                          ),
                       ],
                     ),
                   ),

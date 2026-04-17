@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/admin_api.dart';
-import 'policy_manage_screen.dart';
+import 'worker_detail_screen.dart';
 
 class WorkersTab extends StatefulWidget {
   const WorkersTab({super.key});
@@ -133,13 +133,11 @@ class _WorkersTabState extends State<WorkersTab> {
         : const Color(0xFF00C853);
 
     return GestureDetector(
-      onTap: () async {
-        final changed = await Navigator.push<bool>(context,
-          MaterialPageRoute(
-            builder: (_) =>
-              PolicyManageScreen(worker: w)));
-        if (changed == true) _load();
-      },
+      onTap: () => Navigator.push(context, MaterialPageRoute(
+        builder: (_) => WorkerDetailScreen(
+          workerId:   w['id'] as int,
+          workerName: w['name'] as String? ?? 'Worker',
+        ))),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
@@ -190,6 +188,8 @@ class _WorkersTabState extends State<WorkersTab> {
                           color:      Color(0xFFFF5252),
                           fontSize:   8,
                           fontWeight: FontWeight.bold))),
+                  const Icon(Icons.chevron_right_rounded,
+                    color: Color(0xFF4A5E7A), size: 18),
                 ]),
                 const SizedBox(height: 2),
                 Text(
@@ -220,18 +220,6 @@ class _WorkersTabState extends State<WorkersTab> {
                 ]),
               ],
             )),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color:        gold.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-                border:       Border.all(
-                  color: gold.withOpacity(0.25))),
-              child: const Text('Manage',
-                style: TextStyle(color: gold, fontSize: 12,
-                  fontWeight: FontWeight.w700))),
           ]),
         ),
       ),

@@ -34,6 +34,7 @@ services:
       DB_PORT: 5432
       PORT: 3000
       WEATHER_API_KEY: e5662aa8fdcc219ae6d83e1e588ca6fd
+      ML_SERVICE_URL: http://host.docker.internal:8000
     depends_on:
       postgres:
         condition: service_healthy

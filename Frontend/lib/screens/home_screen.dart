@@ -12,9 +12,15 @@ import 'trigger_alert_flow.dart';
 import '../services/api_service.dart';
 
 class HomeScreen extends StatefulWidget {
-  final int workerId;
-  final int initialTab;
-  const HomeScreen({super.key, required this.workerId, this.initialTab = 0});
+  final int  workerId;
+  final int  initialTab;
+  final bool fromPayment; // true when navigating right after policy payment
+  const HomeScreen({
+    super.key,
+    required this.workerId,
+    this.initialTab  = 0,
+    this.fromPayment = false,
+  });
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -35,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   late AnimationController _tabAnim;
   Timer? _demoTimer;
+  Timer? _policyTimer;  // ← polls admin policy changes every 30s
 
   // Possible demo triggers to rotate through
   static const _demos = [
@@ -58,31 +65,145 @@ class _HomeScreenState extends State<HomeScreen>
       duration: const Duration(milliseconds: 250),
     );
     _tabAnim.forward();
-    _loadPolicy();
+    _initializeSafe();
+  }
+
+  Future<void> _initializeSafe() async {
+    await _initClaimSync();
+    await _loadPolicy();
+    if (widget.fromPayment) {
+      // Arrived fresh from payment → wait 10 s before first trigger check
+      await Future.delayed(const Duration(seconds: 10));
+      if (!mounted) return;
+    }
     _scheduleDemoTrigger();
+  }
+
+  Future<void> _initClaimSync() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedId = prefs.getInt('last_seen_claim_id') ?? 0;
+    
+    final claims = await ApiService.getClaims(widget.workerId);
+    if (claims.isNotEmpty) {
+      final latestId = int.tryParse(claims.first['id'].toString()) ?? 0;
+      
+      if (widget.initialTab == 1) {
+        // Just returned from completing the claim flow. Suppress it!
+        _lastClaimId = latestId;
+        await prefs.setInt('last_seen_claim_id', latestId);
+      } else {
+        // Normal launch, pick up from persisted ID so offline claims pop up!
+        _lastClaimId = savedId;
+      }
+    } else {
+      _lastClaimId = savedId;
+    }
   }
 
   @override
   void dispose() {
     _tabAnim.dispose();
     _demoTimer?.cancel();
+    _policyTimer?.cancel();
     super.dispose();
   }
 
+  int _triggerCount = 0;
+  int _lastClaimId = 0;
+  bool _showingPopup = false;
+
   Future<void> _loadPolicy() async {
     final data = await ApiService.getPolicy(widget.workerId);
-    if (mounted) setState(() { policy = data; loadingPolicy = false; });
+    if (mounted) {
+      setState(() { policy = data; loadingPolicy = false; });
+      if (data != null && data['zone'] != null) {
+        final allClaims = await ApiService.getClaims(widget.workerId);
+        final now = DateTime.now();
+        final recentTriggers = allClaims.where((c) {
+          if (c['detected_at'] == null) return false;
+          try {
+            return now.difference(DateTime.parse(c['detected_at'])).inHours <= 48;
+          } catch (_) { return false; }
+        }).toList();
+        setState(() { _triggerCount = recentTriggers.length; });
+      }
+      _checkNewClaims();
+    }
   }
 
-  // ── Auto trigger: fires once per session after login ──────
-  // Uses SharedPreferences flag so pushAndRemoveUntil (which rebuilds
-  // HomeScreen) does NOT re-fire the trigger on every return.
+  Future<void> _checkNewClaims() async {
+    if (_showingPopup) return;
+    final claims = await ApiService.getClaims(widget.workerId);
+    if (claims.isEmpty) return;
+    
+    final latest = claims.first; // sorted by DESC in backend
+    final id = int.tryParse(latest['id'].toString()) ?? 0;
+    
+    if (id > _lastClaimId && (latest['status'] == 'processing' || latest['status'] == 'approved' || latest['status'] == 'completed')) {
+      _lastClaimId = id;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('last_seen_claim_id', id);
+      _fireBackendTrigger(latest);
+    }
+  }
+
+  Future<void> _fireBackendTrigger(Map<String, dynamic> claim) async {
+    if (!mounted || _showingPopup) return;
+    setState(() => _showingPopup = true);
+
+    final triggerData = {
+      'trigger_type': claim['trigger_type'] ?? 'heavy_rain',
+      'zone':         claim['zone']         ?? 'My Zone',
+      'amount':       claim['payout_amount'] ?? 500,
+      'trigger_id':   claim['trigger_id'],
+      'claim_id':     claim['id'],
+      'expected_income': claim['expected_income'],
+      'actual_income':   claim['actual_income'],
+    };
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+        title: Center(child: Icon(Icons.bolt_rounded, color: gold, size: 48)),
+        content: Text(
+          "Automatic Payout Activated!\nWeather disruption detected in your area.",
+          textAlign: TextAlign.center,
+          style: TextStyle(color: navy, fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+
+    await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TriggerAlertFlow(
+          triggers: [triggerData],
+          policy:   policy,
+        ),
+      ),
+    );
+    
+    if (mounted) {
+      setState(() => _showingPopup = false);
+      _openClaimsTab();
+    }
+  }
+
+  // ── Auto trigger: Polling real claims every 10s
   void _scheduleDemoTrigger() {
-    SharedPreferences.getInstance().then((prefs) {
-      final alreadyFired = prefs.getBool('demo_trigger_fired') ?? false;
-      if (alreadyFired) return; // skip — already shown this session
-      final delay = 5 + Random().nextInt(6); // 5–10 s
-      _demoTimer = Timer(Duration(seconds: delay), _fireDemoTrigger);
+    _demoTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      _checkNewClaims();
+    });
+    // ← Poll for admin policy changes every 30 seconds
+    _policyTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _loadPolicy();
     });
   }
 
@@ -222,6 +343,7 @@ class _HomeScreenState extends State<HomeScreen>
         workerId:  widget.workerId,
         policy:    policy,
         loading:   loadingPolicy,
+        triggerCount: _triggerCount,
         onRefresh: _loadPolicy,
       );
       case 1: return ClaimsTab(
@@ -233,6 +355,7 @@ class _HomeScreenState extends State<HomeScreen>
         workerId:  widget.workerId,
         policy:    policy,
         loading:   loadingPolicy,
+        triggerCount: _triggerCount,
         onRefresh: _loadPolicy,
       );
     }

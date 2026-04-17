@@ -67,6 +67,17 @@ CREATE TABLE IF NOT EXISTS payouts (
   created_at     TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS premium_payments (
+  id             SERIAL PRIMARY KEY,
+  worker_id      INTEGER REFERENCES workers(id) ON DELETE CASCADE,
+  amount         INTEGER NOT NULL,
+  plan_type      VARCHAR(50),
+  payment_method VARCHAR(20) DEFAULT 'UPI',
+  upi_id         VARCHAR(100),
+  status         VARCHAR(20) DEFAULT 'completed',
+  created_at     TIMESTAMP DEFAULT NOW()
+);
+
 -- Indexes for fast queries
 CREATE INDEX IF NOT EXISTS idx_workers_zone     ON workers(zone);
 CREATE INDEX IF NOT EXISTS idx_policies_worker  ON policies(worker_id);
@@ -101,10 +112,44 @@ CREATE TABLE IF NOT EXISTS plan_types (
 );
 
 -- DEFAULT DATA
-
 INSERT INTO plan_types (name, plan_key, weekly_premium, max_payout, triggers_json)
 VALUES
-  ('Basic',    'basic',    29, 500,  '["heavy_rain","extreme_heat"]'),
-  ('Standard', 'standard', 49, 900,  '["heavy_rain","extreme_heat","flood_alert","severe_aqi"]'),
-  ('Pro',      'pro',      79, 1500, '["heavy_rain","extreme_heat","flood_alert","severe_aqi","curfew","cyclone"]')
+  ('Basic',    'basic',    29, 500,  '["heavy_rain","curfew"]'),
+  ('Standard', 'standard', 49, 900,  '["heavy_rain","curfew","extreme_heat","severe_aqi"]'),
+  ('Pro',      'pro',      79, 1500, '["heavy_rain","curfew","extreme_heat","severe_aqi","flood_alert","cyclone"]')
 ON CONFLICT (plan_key) DO NOTHING;
+
+-- Add duration and thresholds support
+ALTER TABLE plan_types ADD COLUMN IF NOT EXISTS duration_days INT DEFAULT 7;
+ALTER TABLE plan_types ADD COLUMN IF NOT EXISTS thresholds_json JSONB DEFAULT '{"rain_mm":10,"temp_c":40,"aqi":200}';
+
+-- Update defaults per plan
+UPDATE plan_types SET
+  duration_days   = 7,
+  thresholds_json = '{"rain_mm":10,"temp_c":40,"aqi":200}'
+WHERE duration_days IS NULL;
+
+
+-- Run this in your PostgreSQL database (Render dashboard → SQL editor)
+-- Adds GPS coordinates to workers table
+
+ALTER TABLE workers
+  ADD COLUMN IF NOT EXISTS latitude  DECIMAL(10, 7),
+  ADD COLUMN IF NOT EXISTS longitude DECIMAL(10, 7);
+
+-- Index for fast location queries
+CREATE INDEX IF NOT EXISTS idx_workers_location
+  ON workers(latitude, longitude)
+  WHERE latitude IS NOT NULL;
+
+ALTER TABLE workers
+  ADD COLUMN IF NOT EXISTS email     VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS latitude  DECIMAL(10,7),
+  ADD COLUMN IF NOT EXISTS longitude DECIMAL(10,7);
+CREATE TABLE IF NOT EXISTS support_queries (
+  id           SERIAL PRIMARY KEY,
+  worker_id    INTEGER REFERENCES workers(id) ON DELETE CASCADE,
+  message      TEXT NOT NULL,
+  status       VARCHAR(20) DEFAULT 'open',
+  created_at   TIMESTAMP DEFAULT NOW()
+);

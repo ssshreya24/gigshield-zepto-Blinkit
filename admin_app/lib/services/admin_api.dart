@@ -11,10 +11,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// iOS Simulator  → http://localhost:3000
-// Android        → http://10.0.2.2:3000
-const String BASE_URL = 'http://localhost:3000';
-
+const String BASE_URL = 'http://127.0.0.1:3000'; // USE LOCALHOST FOR LOCAL DOCKER BACKEND
 class AdminApi {
 
   // ── Auth ─────────────────────────────────────────────────
@@ -62,6 +59,23 @@ class AdminApi {
   static Future<List<dynamic>> getWorkers() async {
     try {
       final res = await http.get(Uri.parse('$BASE_URL/admin/workers'));
+      if (res.statusCode == 200) return json.decode(res.body);
+      return [];
+    } catch (_) { return []; }
+  }
+
+  static Future<Map<String, dynamic>?> getWorkerDetail(int workerId) async {
+    try {
+      final res = await http.get(Uri.parse('$BASE_URL/admin/workers/$workerId'));
+      if (res.statusCode == 200) return json.decode(res.body) as Map<String, dynamic>;
+      return null;
+    } catch (_) { return null; }
+  }
+
+  // ── Payments ─────────────────────────────────────────────
+  static Future<List<dynamic>> getPayments() async {
+    try {
+      final res = await http.get(Uri.parse('$BASE_URL/admin/payments'));
       if (res.statusCode == 200) return json.decode(res.body);
       return [];
     } catch (_) { return []; }
@@ -148,6 +162,7 @@ class AdminApi {
     required int  weeklyPremium,
     required int  maxPayout,
     required bool isActive,
+    int? durationDays,
   }) async {
     try {
       final res = await http.put(
@@ -157,6 +172,28 @@ class AdminApi {
           'weekly_premium': weeklyPremium,
           'max_payout':     maxPayout,
           'is_active':      isActive,
+          if (durationDays != null) 'duration_days': durationDays,
+        }),
+      );
+      return res.statusCode == 200;
+    } catch (_) { return false; }
+  }
+
+  /// PATCH /admin/plan-types/:id/thresholds → update trigger list, thresholds, duration
+  static Future<bool> updatePlanThresholds({
+    required int id,
+    required List<String> triggersJson,
+    required Map<String, dynamic> thresholdsJson,
+    int? durationDays,
+  }) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$BASE_URL/admin/plan-types/$id/thresholds'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'triggers_json':   triggersJson,
+          'thresholds_json': thresholdsJson,
+          if (durationDays != null) 'duration_days': durationDays,
         }),
       );
       return res.statusCode == 200;
@@ -188,6 +225,26 @@ class AdminApi {
       }
       return [];
     } catch (_) { return []; }
+  }
+
+  // ── Support Tickets ───────────────────────────────────────
+  static Future<List<dynamic>> getSupportTickets() async {
+    try {
+      final res = await http.get(Uri.parse('$BASE_URL/admin/support'));
+      if (res.statusCode == 200) return json.decode(res.body);
+      return [];
+    } catch (_) { return []; }
+  }
+
+  static Future<bool> resolveTicket(int ticketId) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$BASE_URL/admin/support/$ticketId'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'status': 'resolved'}),
+      );
+      return res.statusCode == 200;
+    } catch (_) { return false; }
   }
 
   // ── Fallback seed data ────────────────────────────────────

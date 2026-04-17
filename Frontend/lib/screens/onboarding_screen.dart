@@ -2,14 +2,19 @@
 // ✅ OTP after step-1 Continue
 // ✅ Segmented "Weekly Premium" / "Comparison" toggle
 // ✅ Comparison table with tap-to-select
+// ✅ Email field added after phone
 // ✅ All original background, blobs, glass, colors UNCHANGED
 import 'dart:ui';
 import 'dart:math';
+import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'home_screen.dart';
+import 'payment_screen.dart';
 import 'otp_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -31,9 +36,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   int    step         = 1;
   String name         = '';
   String phone        = '';
+  String email        = ''; // ← NEW
   String selectedCity = '';
   String citySearch   = '';
   String zoneSearch   = '';
+  String selectedState= 'Maharashtra';
   String zone         = '';
   String platform     = 'Zepto';
   int    dailyIncome  = 800;
@@ -57,8 +64,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   late AnimationController _pulseCtrl;
   late Animation<double>   _pulse;
 
-  final _cityCtrl = TextEditingController();
-  final _zoneCtrl = TextEditingController();
+  final _cityCtrl  = TextEditingController();
+  final _zoneCtrl  = TextEditingController();
+
+  Timer? _debounce;
+  List<dynamic> apiZones = [];
+  bool isSearchingZone = false;
 
   final Map<String, Map<String, dynamic>> zoneData = {
     'Koramangala':  {'lat': 12.9352, 'lng': 77.6245, 'city': 'Bengaluru', 'risk': 72},
@@ -93,7 +104,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     'Delhi':     ['Lajpat Nagar','Dwarka'],
   };
 
-  final List<Map<String, dynamic>> plans = [
+  final List<String> indianStates = [
+    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+    'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+    'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+    'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+    'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+    'Andaman and Nicobar', 'Chandigarh', 'Dadra and Nagar Haveli',
+    'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
+  ];
+
+  List<Map<String, dynamic>> plans = [
     {
       'id':    'basic',
       'label': 'Basic',
@@ -166,6 +187,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   void initState() {
     super.initState();
+    _fetchLivePlans();
     _fadeCtrl = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 400));
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
@@ -184,6 +206,69 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     _cityCtrl.dispose();
     _zoneCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchLivePlans() async {
+    try {
+      final res = await http.get(Uri.parse('$BASE_URL/admin/plan-types'));
+      if (res.statusCode == 200) {
+        final List<dynamic> data = json.decode(res.body);
+        final List<Map<String, dynamic>> newPlans = [];
+
+        final colorMap = {
+          'basic':    const Color(0xFF4B9FFF),
+          'standard': const Color(0xFF1A2E6E),
+          'pro':      const Color(0xFF9C6FFF),
+        };
+
+        for (final p in data) {
+          if (p['is_active'] != true) continue;
+          final planKey  = p['plan_key'] as String;
+          final covered  = (p['triggers_json'] as List?)?.cast<String>() ?? [];
+          final duration = p['duration_days'] ?? 7;
+
+          newPlans.add({
+            'id':       planKey,
+            'label':    p['name'],
+            'price':    p['weekly_premium'],
+            'max':      p['max_payout'],
+            'color':    colorMap[planKey] ?? const Color(0xFF1A2E6E),
+            'popular':  planKey == 'standard',
+            'duration': duration,
+            'triggers': [
+              {'name': 'Heavy Rain',   'tier': 'T2', 'pct': 50,  'covered': covered.contains('heavy_rain')},
+              {'name': 'Extreme Heat', 'tier': 'T1', 'pct': 25,  'covered': covered.contains('extreme_heat')},
+              {'name': 'Flood Alert',  'tier': 'T3', 'pct': 100, 'covered': covered.contains('flood_alert')},
+              {'name': 'Severe AQI',   'tier': 'T2', 'pct': 50,  'covered': covered.contains('severe_aqi')},
+              {'name': 'Curfew',       'tier': 'T3', 'pct': 100, 'covered': covered.contains('curfew')},
+              {'name': 'Cyclone',      'tier': 'T3', 'pct': 100, 'covered': covered.contains('cyclone')},
+              {'name': 'Storm',        'tier': 'T3', 'pct': 100, 'covered': covered.contains('storm')},
+            ],
+            'features': [
+              '${covered.length} triggers covered',
+              'Max ₹${p['max_payout']} / week',
+              'GPS + fraud detection',
+              'Duration: $duration days',
+            ],
+          });
+        }
+
+        if (newPlans.isNotEmpty && mounted) {
+          setState(() {
+            plans    = newPlans;
+            final current = plans.firstWhere(
+              (p) => p['id'] == planType,
+              orElse: () => plans.first,
+            );
+            planType = current['id'] as String;
+            basePrem = current['price'] as int;
+            maxPay   = current['max']   as int;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch live plans: $e');
+    }
   }
 
   Future<void> _detectLocation() async {
@@ -210,29 +295,47 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         desiredAccuracy: LocationAccuracy.high);
       detectedLat = pos.latitude;
       detectedLng = pos.longitude;
-      String nearestZone = '';
-      double minDist     = double.infinity;
-      zoneData.forEach((z, data) {
-        final d = _distKm(pos.latitude, pos.longitude,
-          data['lat'] as double, data['lng'] as double);
-        if (d < minDist) { minDist = d; nearestZone = z; }
-      });
-      if (nearestZone.isNotEmpty) {
-        final data = zoneData[nearestZone]!;
-        setState(() {
-          zone             = nearestZone;
-          selectedCity     = data['city'] as String;
-          detectedAddress  = '$nearestZone, ${data['city']}';
-          locationDetected = true;
-          locLoading       = false;
-          _cityCtrl.text   = data['city'] as String;
-        });
+      
+      final apiResponse = await ApiService.reverseGeocode(pos.latitude, pos.longitude);
+      if (apiResponse.isNotEmpty && apiResponse['area'] != null) {
+        final rName = apiResponse['area'] as String;
+        final rCity = apiResponse['city'] as String? ?? '';
+        final rRisk = apiResponse['risk'] as int? ?? 50;
+        
+        // Overwrite apiZones to ensure the UI recalculates based on this exact location
+        if (mounted) {
+          setState(() {
+             apiZones = [{'name': rName, 'city': rCity, 'risk': rRisk}];
+             zone             = rName;
+             selectedCity     = rCity;
+             detectedAddress  = '$rName, $rCity';
+             locationDetected = true;
+             locLoading       = false;
+             _cityCtrl.text   = rCity;
+          });
+        }
         recalc();
-        _showLocationSuccess(nearestZone, data['city'] as String);
+        _showLocationSuccess(rName, rCity);
+      } else {
+        throw Exception('Geocoding failed');
       }
     } catch (e) {
-      setState(() => locLoading = false);
-      _showLocationError('Could not detect location. Please select manually.');
+      if (mounted) setState(() => locLoading = false);
+      // 🔥 Simulator Fallback (Mock location if simulator geolocation fails)
+      final dummyZone = 'Dwarka Sector 21';
+      final dummyCity = 'Delhi';
+      if (mounted) {
+        setState(() {
+          apiZones = [{'name': dummyZone, 'city': dummyCity, 'risk': 42}];
+          zone             = dummyZone;
+          selectedCity     = dummyCity;
+          detectedAddress  = '$dummyZone, $dummyCity';
+          locationDetected = true;
+          _cityCtrl.text   = dummyCity;
+        });
+      }
+      recalc();
+      _showLocationSuccess(dummyZone, dummyCity);
     }
   }
 
@@ -248,6 +351,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   double _deg2rad(double deg) => deg * (pi / 180);
 
   void _showLocationSuccess(String z, String city) {
+    int r = 50;
+    if (zoneData.containsKey(z)) {
+      r = zoneData[z]!['risk'] as int;
+    } else {
+      try {
+        final azObj = apiZones.firstWhere((item) => item['name'] == z);
+        r = azObj['risk'] as int? ?? 50;
+      } catch (_) {}
+    }
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -281,7 +394,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 color: const Color(0xFF00C853).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(99)),
               child: Text(
-                'Risk zone: ${_riskLevel(zoneData[z]?['risk'] as int? ?? 50)}',
+                'Risk zone: ${_riskLevel(r)}',
                 style: const TextStyle(color: Color(0xFF00C853),
                   fontSize: 13, fontWeight: FontWeight.w700)),
             ),
@@ -317,9 +430,166 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     score > 60 ? const Color(0xFFFF5252) :
     score > 40 ? gold : const Color(0xFF00C853);
 
+  void _showStatePicker() {
+    String localSearch = '';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (context, setModalState) {
+          final filtered = indianStates
+              .where((s) => s.toLowerCase().contains(localSearch.toLowerCase()))
+              .toList();
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.85,
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8EDFF),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF1A2E6E),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(99)))),
+                    const SizedBox(height: 24),
+                const Text('Select your state',
+                  style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                const SizedBox(height: 6),
+                const Text('Where do you deliver?',
+                  style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w500)),
+                  ])), // End of Navy Header
+                const SizedBox(height: 20),
+                // ── Search bar + counts (fixed height, no Expanded) ───────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF333130),
+                        borderRadius: BorderRadius.circular(12)),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.search_rounded, color: Colors.white54, size: 22),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              autofocus: false,
+                              style: const TextStyle(color: Colors.white, fontSize: 15),
+                              decoration: const InputDecoration(
+                                hintText: 'Search any state...',
+                                hintStyle: TextStyle(color: Colors.white54),
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(vertical: 10),
+                              ),
+                              onChanged: (v) => setModalState(() => localSearch = v),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('ALL STATES — ${filtered.length}',
+                      style: const TextStyle(color: gray, fontSize: 11,
+                        fontWeight: FontWeight.w700, letterSpacing: 1.0)),
+                    const SizedBox(height: 12),
+                  ]),
+                ),
+                // ── GridView is a DIRECT child of outer Column via Expanded ──
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: filtered.isEmpty
+                      ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.search_off_rounded, color: Color(0xFFB0BDD8), size: 40),
+                          const SizedBox(height: 12),
+                          Text('No state found for "$localSearch"',
+                            style: const TextStyle(color: Color(0xFF7A8BB0), fontSize: 13)),
+                        ]))
+                      : GridView.builder(
+                          padding: const EdgeInsets.only(bottom: 32),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 10,
+                            childAspectRatio: 3.4,
+                          ),
+                          itemCount: filtered.length,
+                          itemBuilder: (_, i) {
+                            final s = filtered[i];
+                            final isSelected = s == selectedState;
+                            return GestureDetector(
+                              onTap: () {
+                                if (mounted) {
+                                  setState(() {
+                                    selectedState = s;
+                                    apiZones = [];
+                                    zone = '';
+                                    zoneSearch = '';
+                                    _zoneCtrl.clear();
+                                  });
+                                }
+                                Navigator.pop(ctx);
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                alignment: Alignment.centerLeft,
+                                padding: const EdgeInsets.symmetric(horizontal: 14),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? const Color(0xFF1A2E6E) : Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isSelected ? const Color(0xFF1A2E6E) : const Color(0xFFCDD8F6),
+                                    width: 1.5)),
+                                child: Row(children: [
+                                  if (isSelected)
+                                    const Padding(
+                                      padding: EdgeInsets.only(right: 6),
+                                      child: Icon(Icons.check_circle_rounded,
+                                        color: Colors.white, size: 14)),
+                                  Expanded(child: Text(s,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.white : navy,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700))),
+                                ]),
+                              ),
+                            );
+                          },
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        });
+      },
+    );
+  }
+
   void recalc() {
     if (zone.isEmpty) return;
-    final risk = zoneData[zone]?['risk'] as int? ?? 50;
+    int risk = 50;
+    if (zoneData.containsKey(zone)) {
+      risk = zoneData[zone]!['risk'] as int;
+    } else {
+      try {
+        final azObj = apiZones.firstWhere((item) => item['name'] == zone);
+        risk = azObj['risk'] as int? ?? 50;
+      } catch (_) {
+        risk = 50;
+      }
+    }
     final za   = ((risk / 100) * 20).round();
     final wa   = ((30 / 100) * 15).round();
     final fin  = basePrem + za + wa;
@@ -335,6 +605,113 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void selPlan(String t, int b, int m) {
+    setState(() { planType = t; basePrem = b; maxPay = m; });
+    recalc();
+    // ── Upgrade prompt when Basic is selected ───────────────────────
+    if (t == 'basic') {
+      WidgetsBinding.instance.addPostFrameCallback((_) =>
+          _showUpgradePrompt());
+    }
+  }
+
+  void _showUpgradePrompt() {
+    showModalBottomSheet(
+      context:            context,
+      backgroundColor:    Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Color(0xFF1A2E6E),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(99)),
+            )),
+            const SizedBox(height: 20),
+            Row(children: const [
+              Icon(Icons.shield_rounded, color: Color(0xFFF5A623), size: 22),
+              SizedBox(width: 10),
+              Expanded(child: Text(
+                'You selected Basic — Rain + Curfew only',
+                style: TextStyle(color: Colors.white,
+                  fontSize: 16, fontWeight: FontWeight.w800),
+              )),
+            ]),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(children: const [
+                _UpgradeBenefitRow('🌡️ Extreme Heat coverage', true),
+                SizedBox(height: 8),
+                _UpgradeBenefitRow('😷 Severe AQI coverage', true),
+                SizedBox(height: 8),
+                _UpgradeBenefitRow('📅 Same 7-day duration', false),
+                SizedBox(height: 8),
+                _UpgradeBenefitRow('💰 Only ₹20/week more', false),
+              ]),
+            ),
+            const SizedBox(height: 20),
+            // Upgrade CTA — use live standard plan data
+            Builder(builder: (ctx2) {
+              final stdPlan = plans.firstWhere(
+                (p) => p['id'] == 'standard',
+                orElse: () => {'id': 'standard', 'price': 49, 'max': 900},
+              );
+              final stdPrice = stdPlan['price'] as int;
+              final stdMax   = stdPlan['max']   as int;
+              return SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    selPlanNoPrompt('standard', stdPrice, stdMax);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF5A623),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Upgrade to Standard — ₹$stdPrice/week',
+                    style: const TextStyle(color: Colors.white,
+                      fontSize: 15, fontWeight: FontWeight.w800)),
+                ),
+              );
+            }),
+            const SizedBox(height: 10),
+            // Keep Basic
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text(
+                  'Keep Basic plan',
+                  style: TextStyle(color: Colors.white54, fontSize: 14)),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Upgrade without triggering the prompt loop
+  void selPlanNoPrompt(String t, int b, int m) {
     setState(() { planType = t; basePrem = b; maxPay = m; });
     recalc();
   }
@@ -357,9 +734,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     setState(() => loading = true);
     try {
       final res = await ApiService.registerWorker(
-        name: name, phone: phone, zone: zone,
-        platform: platform, avgDailyIncome: dailyIncome,
-        planType: planType,
+        name:           name,
+        phone:          phone,
+        zone:           zone,
+        platform:       platform,
+        avgDailyIncome: dailyIncome,
+        planType:       planType.toLowerCase(),
+        latitude:       detectedLat == 0.0 ? null : detectedLat,
+        longitude:      detectedLng == 0.0 ? null : detectedLng,
       );
       int? wid;
       if (res['worker'] != null && res['worker']['id'] != null) {
@@ -378,7 +760,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       await prefs.setInt('worker_id', wid);
       if (mounted) {
         Navigator.pushReplacement(context,
-          MaterialPageRoute(builder: (_) => HomeScreen(workerId: wid!)));
+          MaterialPageRoute(builder: (_) => PaymentScreen(
+            workerData: res,
+            planData: selectedPlan,
+          )));
       }
     } catch (e) {
       setState(() => loading = false);
@@ -435,7 +820,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     ]),
   );
 
-  // ── STEP 1 — Name + Phone + OTP ──────────────────────────
+  // ── STEP 1 — Name + Phone + Email + OTP ──────────────────
   Widget _step1() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -465,15 +850,35 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       const Text('Setup takes less than 2 minutes.',
         style: TextStyle(color: gray, fontSize: 15, height: 1.6)),
       const SizedBox(height: 32),
+
+      // ── Fields card ──────────────────────────────────────
       _glass(child: Column(children: [
+        // Name
         _field('Full Name', Icons.person_outline_rounded,
-          false, 'Enter your full name', (v) => setState(() => name = v)),
+          false, 'Enter your full name',
+          TextInputType.name,
+          (v) => setState(() => name = v)),
+
         const SizedBox(height: 16),
+
+        // Phone
         _field('Phone Number', Icons.phone_outlined,
-          true, '10-digit mobile number', (v) => setState(() => phone = v)),
+          true, '10-digit mobile number',
+          TextInputType.phone,
+          (v) => setState(() => phone = v)),
+
+        const SizedBox(height: 16),
+
+        // ── EMAIL FIELD ──────────────────────────────────
+        _field('Email Address', Icons.email_outlined,
+          false, 'your@email.com (optional)',
+          TextInputType.emailAddress,
+          (v) => setState(() => email = v)),
       ])),
+
       const SizedBox(height: 32),
-      // ── Navigate to OTP first, then step 2 ───────────────
+
+      // Continue → OTP → step 2
       _navyBtn('Continue →',
         name.length > 1 && phone.length == 10,
         () async {
@@ -490,6 +895,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             });
           }
         }),
+
       const SizedBox(height: 16),
       Center(
         child: GestureDetector(
@@ -530,7 +936,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         style: TextStyle(color: gray, fontSize: 14, height: 1.5)),
       const SizedBox(height: 24),
 
-      // ── Location ─────────────────────────────────────
+      // ── Location ──────────────────────────────────────
       _sectionLabel('Your Delivery Zone'),
       const SizedBox(height: 10),
       GestureDetector(
@@ -650,162 +1056,162 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       ]),
       const SizedBox(height: 12),
 
-      // City search
+      // Manual Location Search
       _glass(child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // State Selector
           Row(children: [
-            const Icon(Icons.location_city_rounded, color: navy, size: 20),
+            const Icon(Icons.map_outlined, color: navy, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: GestureDetector(
+                onTap: _showStatePicker,
+                child: Container(
+                  color: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(selectedState, style: const TextStyle(color: navy, fontSize: 15, fontWeight: FontWeight.w600)),
+                      const Icon(Icons.keyboard_arrow_down_rounded, color: navy),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          const Divider(color: bdr, height: 1),
+          const SizedBox(height: 8),
+          
+          // Locality Text Input
+          Row(children: [
+            const Icon(Icons.search_rounded, color: navy, size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: TextField(
-                controller: _cityCtrl,
+                controller: _zoneCtrl,
                 style:      const TextStyle(color: navy, fontSize: 15),
-                decoration: const InputDecoration(
-                  hintText:       'Search city (Bengaluru, Mumbai...)',
-                  hintStyle:      TextStyle(color: Color(0xFFB0BDD8)),
+                decoration: InputDecoration(
+                  hintText:       'Search zone in $selectedState...',
+                  hintStyle:      const TextStyle(color: Color(0xFFB0BDD8)),
                   border:         InputBorder.none,
                   isDense:        true,
                   contentPadding: EdgeInsets.zero),
-                onChanged: (v) => setState(() {
-                  citySearch = v; selectedCity = '';
-                  zone = ''; premiumData = null;
-                  _zoneCtrl.clear(); zoneSearch = '';
-                }),
+                onChanged: (v) {
+                  setState(() => zoneSearch = v);
+                  if (_debounce?.isActive ?? false) _debounce!.cancel();
+                  _debounce = Timer(const Duration(milliseconds: 600), () async {
+                    if (v.trim().isEmpty) {
+                      if (mounted) setState(() => apiZones = []);
+                      return;
+                    }
+                    if (mounted) setState(() => isSearchingZone = true);
+                    final results = await ApiService.searchZones('${v.trim()}, $selectedState, India');
+                    if (mounted) {
+                      setState(() {
+                        apiZones = results;
+                        isSearchingZone = false;
+                      });
+                    }
+                  });
+                },
               ),
             ),
-            if (selectedCity.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: navy, borderRadius: BorderRadius.circular(99)),
-                child: Text(selectedCity,
-                  style: const TextStyle(color: Colors.white,
-                    fontSize: 12, fontWeight: FontWeight.w700)),
-              ),
           ]),
-          if (citySearch.isNotEmpty && selectedCity.isEmpty) ...[
-            const SizedBox(height: 10),
-            const Divider(color: bdr, height: 1),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8, runSpacing: 8,
-              children: filteredCities.map((c) =>
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedCity = c; citySearch = c;
-                      zone = ''; zoneSearch = '';
-                      premiumData = null; _zoneCtrl.clear();
-                    });
-                    _cityCtrl.text = c;
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: navy.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(99),
-                      border: Border.all(color: bdr)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.location_city_rounded,
-                        color: navy, size: 14),
-                      const SizedBox(width: 5),
-                      Text(c, style: const TextStyle(
-                        color: navy, fontSize: 13,
-                        fontWeight: FontWeight.w600)),
-                    ]),
-                  ),
-                )
-              ).toList(),
+          const SizedBox(height: 8),
+          const Divider(color: bdr, height: 1),
+          const SizedBox(height: 8),
+          
+          if (isSearchingZone)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Center(child: CircularProgressIndicator(color: navy, strokeWidth: 2)),
             ),
-          ],
+            
+          if (!isSearchingZone && apiZones.isEmpty && zoneSearch.isNotEmpty && zone.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('No localities found. Try a broader area.', style: TextStyle(color: gray, fontSize: 12)),
+            ),
+            
+          ...apiZones.map((az) {
+            final zName = az['name'] as String;
+            final zState = az['state'] as String? ?? 'India';
+            final risk = az['risk'] as int? ?? 50;
+            final riskLvl  = _riskLevel(risk);
+            final rc       = _riskColor(risk);
+            final selected = zone == zName;
+            
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  zone = zName;
+                  detectedLat = (az['lat'] as num?)?.toDouble() ?? 0.0;
+                  detectedLng = (az['lon'] as num?)?.toDouble() ?? 0.0;
+                });
+                recalc();
+                FocusScope.of(context).unfocus(); // Close keyboard automatically
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color:        selected ? navy : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  border:       Border.all(
+                    color: selected ? navy : bdr,
+                    width: selected ? 1.5 : 1)),
+                child: Row(children: [
+                  Icon(Icons.location_on_rounded,
+                    color: selected ? gold : gray, size: 16),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(zName,
+                        style: TextStyle(
+                          color:      selected ? Colors.white : navy,
+                          fontSize:   14,
+                          fontWeight: FontWeight.w600)),
+                      Text(selectedState,
+                        style: TextStyle(
+                          color: selected ? Colors.white60 : gray,
+                          fontSize: 11)),
+                    ],
+                  )),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: selected
+                        ? Colors.white.withOpacity(0.15)
+                        : rc.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(99)),
+                    child: Text(riskLvl,
+                      style: TextStyle(
+                        color:      selected ? Colors.white70 : rc,
+                        fontSize:   10,
+                        fontWeight: FontWeight.bold)),
+                  ),
+                  if (selected) ...[
+                    const SizedBox(width: 6),
+                    const Icon(Icons.check_circle_rounded,
+                      color: gold, size: 18),
+                  ],
+                ]),
+              ),
+            );
+          }),
         ],
       )),
 
-      if (selectedCity.isNotEmpty) ...[
-        const SizedBox(height: 12),
-        _glass(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              const Icon(Icons.search_rounded, color: navy, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _zoneCtrl,
-                  style:      const TextStyle(color: navy, fontSize: 15),
-                  decoration: InputDecoration(
-                    hintText:       'Search zone in $selectedCity...',
-                    hintStyle:      const TextStyle(color: Color(0xFFB0BDD8)),
-                    border:         InputBorder.none,
-                    isDense:        true,
-                    contentPadding: EdgeInsets.zero),
-                  onChanged: (v) => setState(() => zoneSearch = v),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 8),
-            const Divider(color: bdr, height: 1),
-            const SizedBox(height: 8),
-            ...filteredZones.map((z) {
-              final risk     = zoneData[z]?['risk'] as int? ?? 50;
-              final riskLvl  = _riskLevel(risk);
-              final rc       = _riskColor(risk);
-              final selected = zone == z;
-              return GestureDetector(
-                onTap: () { setState(() => zone = z); recalc(); },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color:        selected ? navy : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                    border:       Border.all(
-                      color: selected ? navy : bdr,
-                      width: selected ? 1.5 : 1)),
-                  child: Row(children: [
-                    Icon(Icons.location_on_rounded,
-                      color: selected ? gold : gray, size: 16),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(z,
-                      style: TextStyle(
-                        color:      selected ? Colors.white : navy,
-                        fontSize:   14,
-                        fontWeight: FontWeight.w600))),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: selected
-                          ? Colors.white.withOpacity(0.15)
-                          : rc.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(99)),
-                      child: Text(riskLvl,
-                        style: TextStyle(
-                          color:      selected ? Colors.white70 : rc,
-                          fontSize:   10,
-                          fontWeight: FontWeight.bold)),
-                    ),
-                    if (selected) ...[
-                      const SizedBox(width: 6),
-                      const Icon(Icons.check_circle_rounded,
-                        color: gold, size: 18),
-                    ],
-                  ]),
-                ),
-              );
-            }),
-          ],
-        )),
-      ],
-
       const SizedBox(height: 20),
 
-      // ── Platform ─────────────────────────────────────
+      // ── Platform ──────────────────────────────────────
       _sectionLabel('Platform'),
       const SizedBox(height: 10),
       Row(children: [
@@ -818,7 +1224,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
       const SizedBox(height: 20),
 
-      // ── Income ───────────────────────────────────────
+      // ── Income ────────────────────────────────────────
       _sectionLabel('Average Daily Income'),
       const SizedBox(height: 10),
       _glass(child: Column(children: [
@@ -859,7 +1265,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
       const SizedBox(height: 20),
 
-      // ── Plan Section with Segment Control ─────────────
+      // ── Plan Section ──────────────────────────────────
       _sectionLabel('Choose Plan'),
       const SizedBox(height: 10),
       _planSegmentControl(),
@@ -868,7 +1274,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       if (_planSegment == 1)
         _comparisonTable()
       else ...[
-        // Plan tabs
         Container(
           decoration: BoxDecoration(
             color:        Colors.white.withOpacity(0.6),
@@ -930,8 +1335,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           duration: const Duration(milliseconds: 300),
           child:    _planDetailCard(selectedPlan),
         ),
-
-
       ],
 
       const SizedBox(height: 28),
@@ -958,7 +1361,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     ],
   );
 
-  // ── Segmented control — "Weekly Premium" | "Comparison" ──
+  // ── Segmented control ─────────────────────────────────────
   Widget _planSegmentControl() {
     const labels = ['Weekly Premium', 'Comparison'];
     return Container(
@@ -998,20 +1401,47 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  // ── Comparison table ──────────────────────────────────────
+  // ── Comparison table — fully data-driven from live plans ────
   Widget _comparisonTable() {
     const planColors = [Color(0xFF4B9FFF), Color(0xFF1A2E6E), Color(0xFF9C6FFF)];
-    final planIds    = ['basic', 'standard', 'pro'];
-    final planLabels = ['Basic', 'Standard', 'Pro'];
-    final rows = [
-      {'label': 'Premium',     'basic': '₹29',  'standard': '₹49',  'pro': '₹79'},
-      {'label': 'Max Payout',  'basic': '₹500', 'standard': '₹900', 'pro': '₹1,500'},
-      {'label': 'Heavy Rain',  'basic': '✓',    'standard': '✓',    'pro': '✓'},
-      {'label': 'Ext. Heat',   'basic': '✓',    'standard': '✓',    'pro': '✓'},
-      {'label': 'Flood Alert', 'basic': '✗',    'standard': '✓',    'pro': '✓'},
-      {'label': 'Severe AQI',  'basic': '✗',    'standard': '✓',    'pro': '✓'},
-      {'label': 'Curfew',      'basic': '✗',    'standard': '✗',    'pro': '✓'},
-      {'label': 'Cyclone',     'basic': '✗',    'standard': '✗',    'pro': '✓'},
+
+    // Build plan order from live list; fallback to known keys
+    final orderedKeys = ['basic', 'standard', 'pro'];
+    final activePlans = orderedKeys
+      .map((k) {
+        try { return plans.firstWhere((p) => p['id'] == k); }
+        catch (_) { return null; }
+      })
+      .whereType<Map<String, dynamic>>()
+      .toList();
+
+    // Collect all unique trigger names across all plans
+    final allTriggerNames = <String>{};
+    for (final p in activePlans) {
+      for (final t in (p['triggers'] as List)) {
+        allTriggerNames.add(t['name'] as String);
+      }
+    }
+
+    // Build dynamic rows: Premium + Max Payout first, then each trigger
+    final List<Map<String, String>> rows = [
+      {
+        'label': 'Premium',
+        for (final p in activePlans)
+          p['id'] as String: '₹${p['price']}',
+      },
+      {
+        'label': 'Max Payout',
+        for (final p in activePlans)
+          p['id'] as String: '₹${p['max']}',
+      },
+      ...allTriggerNames.map((tName) => {
+        'label': tName,
+        for (final p in activePlans)
+          p['id'] as String: ((p['triggers'] as List)
+            .any((t) => t['name'] == tName && t['covered'] == true))
+              ? '✓' : '✗',
+      }),
     ];
 
     return Container(
@@ -1022,7 +1452,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       ),
       clipBehavior: Clip.hardEdge,
       child: Column(children: [
-        // Header row
         Container(
           color: const Color(0xFFF0F3FF),
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
@@ -1030,36 +1459,41 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             const Expanded(flex: 3, child: Text('Feature',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
                 color: Color(0xFF7A8BB0)))),
-            ...List.generate(3, (i) => Expanded(
-              flex: 2,
-              child: GestureDetector(
-                onTap: () {
-                  selPlan(planIds[i], [29, 49, 79][i], [500, 900, 1500][i]);
-                  setState(() => _planSegment = 0);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  margin:   const EdgeInsets.symmetric(horizontal: 2),
-                  padding:  const EdgeInsets.symmetric(vertical: 4),
-                  decoration: BoxDecoration(
-                    color: planColors[i].withOpacity(
-                      planType == planIds[i] ? 1.0 : 0.12),
-                    borderRadius: BorderRadius.circular(7),
+            ...activePlans.asMap().entries.map((pe) {
+              final i    = pe.key;
+              final p    = pe.value;
+              final pId  = p['id'] as String;
+              return Expanded(
+                flex: 2,
+                child: GestureDetector(
+                  onTap: () {
+                    selPlan(pId, p['price'] as int, p['max'] as int);
+                    setState(() => _planSegment = 0);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    margin:   const EdgeInsets.symmetric(horizontal: 2),
+                    padding:  const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: planColors[i % planColors.length].withOpacity(
+                        planType == pId ? 1.0 : 0.12),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Text(p['label'] as String,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize:   11,
+                        fontWeight: FontWeight.w800,
+                        color: planType == pId
+                          ? Colors.white
+                          : planColors[i % planColors.length],
+                      )),
                   ),
-                  child: Text(planLabels[i],
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize:   11,
-                      fontWeight: FontWeight.w800,
-                      color: planType == planIds[i]
-                        ? Colors.white : planColors[i],
-                    )),
                 ),
-              ),
-            )),
+              );
+            }),
           ]),
         ),
-        // Data rows
         ...rows.asMap().entries.map((entry) {
           final isShaded = entry.key.isOdd;
           final row      = entry.value;
@@ -1070,8 +1504,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               Expanded(flex: 3, child: Text(row['label']!,
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
                   color: Color(0xFF1A2E6E)))),
-              ...['basic', 'standard', 'pro'].asMap().entries.map((pe) {
-                final val   = row[pe.value]!;
+              ...activePlans.asMap().entries.map((pe) {
+                final i   = pe.key;
+                final val = row[pe.value['id'] as String] ?? '–';
                 final check = val == '✓';
                 final cross = val == '✗';
                 return Expanded(flex: 2, child: Center(
@@ -1079,12 +1514,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     ? Icon(Icons.remove_rounded, color: bdr, size: 14)
                     : check
                       ? Icon(Icons.check_circle_rounded,
-                          color: planColors[pe.key], size: 14)
+                          color: planColors[i % planColors.length], size: 14)
                       : Text(val,
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 10,
                             fontWeight: FontWeight.w800,
-                            color: planColors[pe.key])),
+                            color: planColors[i % planColors.length])),
                 ));
               }),
             ]),
@@ -1101,7 +1536,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  // ── Plan detail card (unchanged) ─────────────────────────
+  // ── Plan detail card ──────────────────────────────────────
   Widget _planDetailCard(Map<String, dynamic> plan) {
     final color    = plan['color'] as Color;
     final triggers = plan['triggers'] as List;
@@ -1228,7 +1663,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-
   Widget _platformBtn(String label, String letter, Color bg2, Color fg) {
     final active = platform == label;
     return Expanded(
@@ -1293,34 +1727,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       ),
     );
 
-  Widget _glass({required Widget child}) => ClipRRect(
-    borderRadius: BorderRadius.circular(16),
-    child: BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.75),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.9), width: 1.5),
-          boxShadow: [BoxShadow(
-            color:      const Color(0xFF7B9CFF).withOpacity(0.08),
-            blurRadius: 16, offset: const Offset(0, 4))]),
-        padding: const EdgeInsets.all(16),
-        child:   child,
-      ),
-    ),
-  );
-
+  // ── Updated _field with keyboardType param ────────────────
   Widget _field(String label, IconData icon, bool isNum,
-      String hint, Function(String) onChange) =>
+      String hint, TextInputType keyboardType, Function(String) onChange) =>
     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label, style: const TextStyle(
         color: gray, fontSize: 12, fontWeight: FontWeight.w700,
         letterSpacing: 0.6)),
       const SizedBox(height: 8),
       TextField(
-        keyboardType: isNum ? TextInputType.phone : TextInputType.name,
+        keyboardType: keyboardType,
         maxLength:    isNum ? 10 : null,
         onChanged:    onChange,
         style: const TextStyle(color: navy, fontSize: 15),
@@ -1352,4 +1768,57 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   Widget _blob(double s, Color c) => Container(
     width: s, height: s,
     decoration: BoxDecoration(shape: BoxShape.circle, color: c));
+
+
+  Widget _glass({required Widget child}) => ClipRRect(
+  borderRadius: BorderRadius.circular(16),
+  child: BackdropFilter(
+    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+    child: Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.75),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.9), width: 1.5),
+        boxShadow: [BoxShadow(
+          color:      const Color(0xFF7B9CFF).withOpacity(0.08),
+          blurRadius: 16, offset: const Offset(0, 4))]),
+      padding: const EdgeInsets.all(16),
+      child:   child,
+    ),
+  ),
+);
 }
+
+// ── Upgrade popup benefit row ──────────────────────────────────
+class _UpgradeBenefitRow extends StatelessWidget {
+  final String text;
+  final bool   isNew;
+  const _UpgradeBenefitRow(this.text, this.isNew);
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+    Container(
+      width: 20, height: 20,
+      decoration: BoxDecoration(
+        color: isNew
+          ? const Color(0xFFF5A623).withOpacity(0.15)
+          : Colors.white.withOpacity(0.06),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        isNew ? Icons.add_rounded : Icons.check_rounded,
+        size: 12,
+        color: isNew ? const Color(0xFFF5A623) : Colors.white38,
+      ),
+    ),
+    const SizedBox(width: 10),
+    Expanded(child: Text(text,
+      style: TextStyle(
+        color:      isNew ? Colors.white : Colors.white60,
+        fontSize:   13,
+        fontWeight: isNew ? FontWeight.w700 : FontWeight.w500,
+      ))),
+  ]);
+}
+

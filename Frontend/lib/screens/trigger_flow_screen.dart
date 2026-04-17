@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
+import '../services/claim_receipt_generator.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 // EXACT FLOW FROM SPEC IMAGE:
@@ -51,8 +52,10 @@ class _TriggerFlowScreenState extends State<TriggerFlowScreen>
   static const grn  = Color(0xFF00C853);
   static const red  = Color(0xFFFF5252);
 
-  int  _screen    = 0;
-  int  _checks    = 0;
+  int  _screen        = 0;
+  int  _checks        = 0;
+  bool _downloading   = false;
+  String _selMethod   = 'upi'; // selected payment method
 
   // Screen 1 — premium breakdown animated in one by one
   int  _rainRisk  = 0;
@@ -103,6 +106,44 @@ class _TriggerFlowScreenState extends State<TriggerFlowScreen>
     _runScreen0();
   }
 
+  Future<void> _downloadReceipt() async {
+    setState(() => _downloading = true);
+    try {
+      final triggerEntry = <String, dynamic>{
+        'name':     _triggerName(),
+        'severity': widget.severity,
+        'pct':      _coverPct,
+        'icon':     Icons.bolt_rounded,
+        'color':    const Color(0xFF4B9FFF),
+      };
+      final policy = <String, dynamic>{
+        'name':      widget.workerName,
+        'zone':      widget.zone,
+        'platform':  'Delivery',
+        'plan_type': 'standard',
+        'id':        1,
+        'worker_id': 1,
+      };
+      await ClaimReceiptGenerator.generate(
+        total:    _payout,
+        triggers: [triggerEntry],
+        amounts:  [_payout],
+        policy:   policy,
+        upiId:    widget.upiId,
+        claimId:  _claimId,
+        txnId:    _txnId,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'),
+            backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
+
   @override
   void dispose() { _amtCtrl.dispose(); super.dispose(); }
 
@@ -142,14 +183,14 @@ class _TriggerFlowScreenState extends State<TriggerFlowScreen>
 
   int get _finalPrem => 50 + _rainRisk + _floodZone - _safeDisc;
 
-  // ── SCREEN 3: UPI payout animation (auto) ────────────────
+  // ── SCREEN 4: UPI payout animation (auto, called from payment screen) ─────
   Future<void> _goToPayout() async {
-    setState(() => _screen = 3);
+    setState(() => _screen = 4);
     HapticFeedback.mediumImpact();
     _amtCtrl.forward();
     await Future.delayed(const Duration(milliseconds: 3500));
     if (!mounted) return;
-    setState(() => _screen = 4);
+    setState(() => _screen = 5);
     HapticFeedback.heavyImpact();
   }
 
@@ -171,8 +212,9 @@ class _TriggerFlowScreenState extends State<TriggerFlowScreen>
       case 0: return _s0Processing();
       case 1: return _s1Premium();
       case 2: return _s2Summary();
-      case 3: return _s3Payout();
-      case 4: return _s4Success();
+      case 3: return _s3PaymentMethod();  // NEW: payment selection
+      case 4: return _s4Payout();         // was screen 3
+      case 5: return _s5Success();         // was screen 4
       default: return _s0Processing();
     }
   }
@@ -388,22 +430,25 @@ class _TriggerFlowScreenState extends State<TriggerFlowScreen>
           _autoTag(),
           const SizedBox(height: 16),
 
-          // Claim Now button
+          // Claim ₹X Now → go to payment method selection (screen 3)
           GestureDetector(
-            onTap: _goToPayout,
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              setState(() => _screen = 3);
+            },
             child: Container(
               width:   double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 17),
               decoration: BoxDecoration(
-                color:        navy,
+                color:        gold,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [BoxShadow(
-                  color:      navy.withOpacity(0.35),
-                  blurRadius: 16, offset: const Offset(0, 6))]),
+                  color:      gold.withOpacity(0.5),
+                  blurRadius: 20, offset: const Offset(0, 8))]),
               child: Center(child: Text(
                 'Claim ₹$_payout Now →',
-                style: const TextStyle(color: Colors.white,
-                  fontSize: 16, fontWeight: FontWeight.w800))),
+                style: const TextStyle(color: Color(0xFF0D1829),
+                  fontSize: 16, fontWeight: FontWeight.w900))),
             ),
           ),
         ],
@@ -412,10 +457,154 @@ class _TriggerFlowScreenState extends State<TriggerFlowScreen>
   );
 
   // ══════════════════════════════════════════════════════════
-  // SCREEN 3 — UPI Payout Screen
+  // SCREEN 3 — Payment Method Selection (NEW)
   // ══════════════════════════════════════════════════════════
-  Widget _s3Payout() => SafeArea(
-    key: const ValueKey('s3'),
+  Widget _s3PaymentMethod() => SafeArea(
+    key: const ValueKey('s3pay'),
+    child: Column(
+      children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _screen = 2),
+                child: Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white.withOpacity(0.15))),
+                  child: const Icon(Icons.arrow_back_rounded,
+                    color: Colors.white, size: 20)),
+              ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Payment Method',
+                    style: TextStyle(color: Colors.white, fontSize: 22,
+                      fontWeight: FontWeight.w900)),
+                  Text('Receive your payout of ₹$_payout',
+                    style: TextStyle(color: Colors.white.withOpacity(0.5),
+                      fontSize: 12)),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
+        // Payout amount banner
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: gold.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: gold.withOpacity(0.35))),
+            child: Row(
+              children: [
+                const Icon(Icons.account_balance_wallet_rounded,
+                  color: gold, size: 26),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Payout amount',
+                      style: TextStyle(color: Colors.white54, fontSize: 11)),
+                    Text('₹$_payout',
+                      style: const TextStyle(color: gold, fontSize: 26,
+                        fontWeight: FontWeight.w900)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: const Text('SELECT METHOD',
+            style: TextStyle(color: Colors.white38, fontSize: 11,
+              fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+        ),
+        const SizedBox(height: 10),
+
+        // Payment options
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            children: [
+              _payOption('upi',   Icons.account_balance_wallet_rounded,
+                const Color(0xFF4B9FFF), 'UPI', widget.upiId, 'Instant · Verified'),
+              const SizedBox(height: 10),
+              _payOption('card',  Icons.credit_card_rounded,
+                const Color(0xFF9C6FFF), 'Debit Card', 'HDFC Bank •••• 4521',
+                'Within 2 hours'),
+              const SizedBox(height: 10),
+              _payOption('gpay',  Icons.phone_android_rounded,
+                const Color(0xFF00C853), 'Google Pay / PhonePe',
+                widget.upiId, 'Instant UPI'),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Security note
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              const Icon(Icons.lock_rounded, color: Colors.white24, size: 13),
+              const SizedBox(width: 6),
+              Expanded(child: Text(
+                'Payout secured by Insurify · 256-bit encryption · RBI compliant',
+                style: TextStyle(color: Colors.white.withOpacity(0.25),
+                  fontSize: 11))),
+            ],
+          ),
+        ),
+
+        const Spacer(),
+
+        // Confirm button
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+          child: GestureDetector(
+            onTap: _goToPayout,
+            child: Container(
+              width:   double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 17),
+              decoration: BoxDecoration(
+                color:        gold,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [BoxShadow(
+                  color:      gold.withOpacity(0.45),
+                  blurRadius: 20, offset: const Offset(0, 8))]),
+              child: Center(child: Text(
+                'Confirm & Receive ₹$_payout →',
+                style: const TextStyle(color: Color(0xFF0D1829),
+                  fontSize: 16, fontWeight: FontWeight.w900))),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  // ══════════════════════════════════════════════════════════
+  // SCREEN 4 — UPI Payout Screen (was screen 3)
+  // ══════════════════════════════════════════════════════════
+  Widget _s4Payout() => SafeArea(
+    key: const ValueKey('s4pay'),
     child: SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -525,10 +714,10 @@ class _TriggerFlowScreenState extends State<TriggerFlowScreen>
   );
 
   // ══════════════════════════════════════════════════════════
-  // SCREEN 4 — Success Screen
+  // SCREEN 5 — Success Screen (was screen 4)
   // ══════════════════════════════════════════════════════════
-  Widget _s4Success() => SafeArea(
-    key: const ValueKey('s4'),
+  Widget _s5Success() => SafeArea(
+    key: const ValueKey('s5success'),
     child: Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -586,7 +775,7 @@ class _TriggerFlowScreenState extends State<TriggerFlowScreen>
 
           const Spacer(),
 
-          // BACK TO HOME — NOT logout
+          // BACK TO HOME
           GestureDetector(
             onTap: () async {
               final prefs = await SharedPreferences.getInstance();
@@ -602,15 +791,53 @@ class _TriggerFlowScreenState extends State<TriggerFlowScreen>
               width:   double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 17),
               decoration: BoxDecoration(
-                color:        navy,
+                color:        gold,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [BoxShadow(
-                  color:      navy.withOpacity(0.35),
+                  color:      gold.withOpacity(0.4),
                   blurRadius: 16, offset: const Offset(0, 6))]),
               child: const Center(child: Text(
                 'Back to Home',
-                style: TextStyle(color: Colors.white,
-                  fontSize: 16, fontWeight: FontWeight.w800))),
+                style: TextStyle(color: Color(0xFF0D1829),
+                  fontSize: 16, fontWeight: FontWeight.w900))),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // DOWNLOAD RECEIPT PDF
+          GestureDetector(
+            onTap: _downloading ? null : _downloadReceipt,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width:    double.infinity,
+              padding:  const EdgeInsets.symmetric(vertical: 15),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withOpacity(0.18))),
+              child: _downloading
+                ? const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(width: 18, height: 18,
+                        child: CircularProgressIndicator(
+                          color: Colors.white54, strokeWidth: 2.5)),
+                      SizedBox(width: 10),
+                      Text('Generating PDF...',
+                        style: TextStyle(color: Colors.white54,
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                    ])
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.picture_as_pdf_rounded,
+                        color: Colors.white60, size: 20),
+                      SizedBox(width: 8),
+                      Text('Download Receipt (PDF)',
+                        style: TextStyle(color: Colors.white70,
+                          fontSize: 14, fontWeight: FontWeight.w700)),
+                    ]),
             ),
           ),
         ],
@@ -766,4 +993,60 @@ class _TriggerFlowScreenState extends State<TriggerFlowScreen>
           const Icon(Icons.check_circle_rounded, color: grn, size: 20),
       ]),
     );
+
+  // ── Selectable payment option tile for screen 3 ───────────
+  Widget _payOption(
+    String key, IconData icon, Color color,
+    String label, String detail, String speed,
+  ) {
+    final sel = _selMethod == key;
+    return GestureDetector(
+      onTap: () => setState(() => _selMethod = key),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: sel
+            ? color.withOpacity(0.12)
+            : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: sel ? color.withOpacity(0.6) : Colors.white.withOpacity(0.1),
+            width: sel ? 1.5 : 1)),
+        child: Row(children: [
+          Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: color, size: 22)),
+          const SizedBox(width: 14),
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: sel ? FontWeight.w800 : FontWeight.w500)),
+              const SizedBox(height: 2),
+              Text(detail, style: const TextStyle(
+                color: Colors.white38, fontSize: 12)),
+              const SizedBox(height: 2),
+              Text(speed, style: TextStyle(
+                color: color.withOpacity(0.8), fontSize: 11,
+                fontWeight: FontWeight.w600)),
+            ],
+          )),
+          if (sel)
+            Icon(Icons.check_circle_rounded, color: color, size: 22)
+          else
+            Container(
+              width: 20, height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white24, width: 1.5))),
+        ]),
+      ),
+    );
+  }
 }

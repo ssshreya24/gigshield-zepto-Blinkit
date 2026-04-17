@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/admin_api.dart';
-import 'plan_types_screen.dart'; // ← ADDED
+import 'plan_types_screen.dart';
+import 'payments_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'admin_login.dart';
 
@@ -97,12 +98,9 @@ class _DashboardTabState extends State<DashboardTab> {
       'Velachery','Marathahalli','Gachibowli',
     ];
     const types = [
-      {'label': '🌧️ Heavy Rain',   'type': 'heavy_rain',   'sev': 'T2', 'val': 85},
-      {'label': '🌊 Flood Alert',  'type': 'flood_alert',  'sev': 'T3', 'val': 95},
-      {'label': '🌡️ Extreme Heat', 'type': 'extreme_heat', 'sev': 'T1', 'val': 44},
-      {'label': '😷 Severe AQI',   'type': 'severe_aqi',   'sev': 'T2', 'val': 310},
-      {'label': '🚫 Curfew',       'type': 'curfew',       'sev': 'T3', 'val': 1},
-      {'label': '🌀 Cyclone',      'type': 'cyclone',      'sev': 'T3', 'val': 1},
+      {'label': '🚫 Curfew',           'type': 'curfew',           'sev': 'T3', 'val': 1},
+      {'label': '🌀 Cyclone',          'type': 'cyclone',          'sev': 'T3', 'val': 1},
+      {'label': '🛑 Platform Shutdown','type': 'platform_shutdown','sev': 'T3', 'val': 1},
     ];
 
     String selectedZone = zones[0];
@@ -131,14 +129,14 @@ class _DashboardTabState extends State<DashboardTab> {
                   borderRadius: BorderRadius.circular(99)),
               )),
               const SizedBox(height: 20),
-              const Text('Fire Demo Trigger',
+              const Text('Fire Manual Override Trigger',
                 style: TextStyle(
                   fontSize: 18, fontWeight: FontWeight.w800,
                   color: Colors.white)),
               const SizedBox(height: 20),
 
               // Zone picker
-              const Text('Zone',
+              const Text('Target Zone',
                 style: TextStyle(fontSize: 12, color: Color(0xFF7A8BB0),
                   fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
@@ -335,195 +333,75 @@ class _DashboardTabState extends State<DashboardTab> {
               ),
               const SizedBox(height: 20),
 
-              // ── ADDED: Quick Actions Row ───────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Quick Actions',
-                      style: TextStyle(
-                        fontSize:   14,
-                        fontWeight: FontWeight.w700,
-                        color:      Colors.white)),
-                    const SizedBox(height: 12),
-                    Row(children: [
-
-                      // Manage Plans
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const PlanTypesScreen())),
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color:        const Color(0xFF13243A),
-                              borderRadius: BorderRadius.circular(16),
-                              border:       Border.all(
-                                  color: const Color(0xFF9C6FFF).withOpacity(0.35)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 36, height: 36,
-                                  decoration: BoxDecoration(
-                                    color:        const Color(0xFF9C6FFF).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(Icons.dashboard_customize_rounded,
-                                      color: Color(0xFF9C6FFF), size: 18),
-                                ),
-                                const SizedBox(height: 10),
-                                const Text('Manage Plans',
-                                  style: TextStyle(
-                                    fontSize:   13,
-                                    fontWeight: FontWeight.w700,
-                                    color:      Colors.white)),
-                                const SizedBox(height: 2),
-                                const Text('Edit pricing & toggles',
-                                  style: TextStyle(
-                                    fontSize: 10, color: Color(0xFF7A8BB0))),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(width: 12),
-
-                      // Fire Demo Trigger
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => _showFireTriggerSheet(context),
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color:        const Color(0xFF13243A),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                  color: Colors.redAccent.withOpacity(0.35)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 36, height: 36,
-                                  decoration: BoxDecoration(
-                                    color:        Colors.redAccent.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(Icons.bolt_rounded,
-                                      color: Colors.redAccent, size: 18),
-                                ),
-                                const SizedBox(height: 10),
-                                const Text('Fire Trigger',
-                                  style: TextStyle(
-                                    fontSize:   13,
-                                    fontWeight: FontWeight.w700,
-                                    color:      Colors.white)),
-                                const SizedBox(height: 2),
-                                const Text('Simulate event',
-                                  style: TextStyle(
-                                    fontSize: 10, color: Color(0xFF7A8BB0))),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    ]),
-                  ],
-                ),
-              ),
+              // ── Quick Actions ──────────────────────────────────
+              const Text('Quick Actions',
+                style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+              const SizedBox(height: 12),
+              Row(children: [
+                // Manage Policy
+                Expanded(child: GestureDetector(
+                  onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const PlanTypesScreen())),
+                  child: _qaCard(Icons.shield_rounded, const Color(0xFF00C853),
+                    'Manage Policy', 'Plans & coverage'),
+                )),
+                const SizedBox(width: 10),
+                // Payments
+                Expanded(child: GestureDetector(
+                  onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => Scaffold(
+                      backgroundColor: const Color(0xFF0D1829),
+                      appBar: AppBar(
+                        backgroundColor: const Color(0xFF0D1829),
+                        elevation: 0,
+                        leading: IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                            color: Colors.white, size: 18),
+                          onPressed: () => Navigator.pop(context)),
+                        title: const Text('Payments', style: TextStyle(
+                          color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800))),
+                      body: const PaymentsTab()))),
+                  child: _qaCard(Icons.payment_rounded, gold,
+                    'Payments', 'Revenue & receipts'),
+                )),
+                const SizedBox(width: 10),
+                // Support
+                Expanded(child: GestureDetector(
+                  onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const AdminSupportScreen())),
+                  child: _qaCard(Icons.support_agent_rounded,
+                    const Color(0xFF4B9FFF), 'Support', 'Help tickets'),
+                )),
+              ]),
               const SizedBox(height: 20),
-              // ──────────────────────────────────────────────────
 
-              // Fire triggers (original inline quick-fire row)
-              _label('Demo Controls'),
+              // Manual Overrides (backend unchanged)
+              _label('Manual Overrides'),
               const SizedBox(height: 10),
               _card(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Fire trigger manually',
+                  const Text('Fire administrative triggers',
                     style: TextStyle(color: Colors.white,
                       fontSize: 14, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 3),
-                  const Text('Fires for all workers in Koramangala',
+                  const Text('Fires immediately for target zones. No weather threshold needed.',
                     style: TextStyle(color: gray, fontSize: 11)),
                   const SizedBox(height: 14),
                   Row(children: [
-                    _trigBtn('🌧 Rain',  'heavy_rain',
-                      'T2', const Color(0xFF4B9FFF)),
+                    _trigBtn('🚫 Curfew',  'curfew',  'T3', const Color(0xFFFF5252)),
                     const SizedBox(width: 8),
-                    _trigBtn('🌊 Flood', 'flood_alert',
-                      'T3', const Color(0xFFFF5252)),
+                    _trigBtn('🌀 Cyclone', 'cyclone', 'T3', const Color(0xFF4B9FFF)),
                     const SizedBox(width: 8),
-                    _trigBtn('🌡 Heat',  'extreme_heat',
-                      'T1', gold),
-                    const SizedBox(width: 8),
-                    _trigBtn('💨 AQI',   'severe_aqi',
-                      'T2', const Color(0xFF9C6FFF)),
+                    _trigBtn('🛑 Shutdown','platform_shutdown','T3',const Color(0xFF9C6FFF)),
                   ]),
                 ],
               )),
               const SizedBox(height: 20),
 
-              // Recent triggers
-              _label('Recent Triggers'),
-              const SizedBox(height: 10),
-              if (triggers.isEmpty)
-                _emptyBox('No triggers fired', 'All zones clear')
-              else
-                ...triggers.take(5).map((e) => _trigRow(e as Map<String, dynamic>)),
-              const SizedBox(height: 20),
-
-              // Zone heatmap
-              _label('Zone Risk Heatmap'),
-              const SizedBox(height: 10),
-              _card(child: Column(
-                children: zones.map((z) {
-                  final sc = z['score'] as int;
-                  final rc = _rc(z['level'] as String);
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 7),
-                    child: Row(children: [
-                      SizedBox(width: 95, child: Text(
-                        z['name'] as String,
-                        style: const TextStyle(
-                          color: Colors.white, fontSize: 12,
-                          fontWeight: FontWeight.w600))),
-                      const SizedBox(width: 8),
-                      Expanded(child: ClipRRect(
-                        borderRadius: BorderRadius.circular(99),
-                        child: LinearProgressIndicator(
-                          value:           sc / 100,
-                          backgroundColor:
-                            Colors.white.withOpacity(0.08),
-                          valueColor:
-                            AlwaysStoppedAnimation(rc),
-                          minHeight: 8))),
-                      const SizedBox(width: 8),
-                      SizedBox(width: 30, child: Text(
-                        '$sc%', style: const TextStyle(
-                          color: Colors.white38, fontSize: 10))),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: rc.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(99)),
-                        child: Text(z['level'] as String,
-                          style: TextStyle(color: rc,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold))),
-                    ]),
-                  );
-                }).toList(),
-              )),
+              // ── Recent Triggers (image-matched) ───────────────
+              _recentTriggersSection(),
             ],
           ),
         ),
@@ -638,13 +516,13 @@ class _DashboardTabState extends State<DashboardTab> {
             borderRadius: BorderRadius.circular(12)),
           child: Icon(icon, color: color, size: 22)),
         const SizedBox(width: 12),
-        Column(crossAxisAlignment: CrossAxisAlignment.start,
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
           children: [
           Text(val, style: TextStyle(color: color,
             fontSize: 20, fontWeight: FontWeight.w900)),
           Text(label, style: const TextStyle(
-            color: gray, fontSize: 10)),
-        ]),
+            color: gray, fontSize: 10, overflow: TextOverflow.ellipsis)),
+        ])),
       ]),
     ));
 
@@ -686,7 +564,459 @@ class _DashboardTabState extends State<DashboardTab> {
         color: Colors.white24, fontSize: 12)),
     ]));
 
+  // ── QA card helper ──────────────────────────────────────────
+  Widget _qaCard(IconData icon, Color color, String title, String sub) =>
+    Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF13243A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.35))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 34, height: 34,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, color: color, size: 17)),
+        const SizedBox(height: 8),
+        Text(title, style: const TextStyle(fontSize: 12,
+          fontWeight: FontWeight.w700, color: Colors.white)),
+        const SizedBox(height: 2),
+        Text(sub, style: const TextStyle(fontSize: 9, color: Color(0xFF7A8BB0))),
+      ]),
+    );
+
+  // ── Recent Triggers section (image-matched) ──────────────────
+  Widget _recentTriggersSection() => Container(
+    decoration: BoxDecoration(
+      color: const Color(0xFF0F1F35),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFF1E3352))),
+    child: Column(children: [
+      // Header row
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        child: Row(children: [
+          const Text('Recent Triggers',
+            style: TextStyle(color: Colors.white, fontSize: 16,
+              fontWeight: FontWeight.w800)),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00C853).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(99),
+              border: Border.all(color: const Color(0xFF00C853).withOpacity(0.35))),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(width: 6, height: 6,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF00C853), shape: BoxShape.circle)),
+              const SizedBox(width: 5),
+              const Text('Live', style: TextStyle(
+                color: Color(0xFF00C853), fontSize: 11, fontWeight: FontWeight.w700)),
+            ])),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => AllTriggersScreen(triggers: triggers))),
+            child: const Text('See all',
+              style: TextStyle(color: Color(0xFF4B9FFF), fontSize: 12,
+                fontWeight: FontWeight.w700))),
+        ]),
+      ),
+      // Trigger rows
+      if (triggers.isEmpty)
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(children: const [
+            Icon(Icons.bolt_rounded, color: Colors.white24, size: 32),
+            SizedBox(height: 8),
+            Text('No triggers fired',
+              style: TextStyle(color: Colors.white38, fontSize: 13)),
+          ]))
+      else
+        ...triggers.take(5).map((e) => _newTrigRow(e as Map<String, dynamic>)),
+      // View all button
+      GestureDetector(
+        onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => AllTriggersScreen(triggers: triggers))),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.03),
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(18)),
+            border: Border(top: BorderSide(color: const Color(0xFF1E3352)))),
+          child: const Center(child: Text('View all triggers  →',
+            style: TextStyle(color: Colors.white38, fontSize: 13,
+              fontWeight: FontWeight.w600))),
+        ),
+      ),
+    ]),
+  );
+
+  // ── New styled trigger row ───────────────────────────────────
+  Widget _newTrigRow(Map<String, dynamic> t) {
+    final type = t['trigger_type'] as String? ?? '';
+    final sev  = t['severity']     as String? ?? 'T2';
+    final val  = t['value'];
+    final zone = t['zone']         as String? ?? '';
+    final date = (t['created_at']?.toString() ?? '').length >= 10
+        ? t['created_at'].toString().substring(0, 10) : '';
+
+    // Colors & icon per trigger type
+    Color lineCol;
+    IconData ic;
+    String valLabel;
+    switch (type) {
+      case 'heavy_rain':   lineCol = const Color(0xFF4B9FFF); ic = Icons.water_drop_rounded;  valLabel = val != null ? '${val}mm'  : ''; break;
+      case 'flood_alert':  lineCol = const Color(0xFF00C853); ic = Icons.flood_rounded;        valLabel = val != null ? '${val}mm'  : ''; break;
+      case 'extreme_heat': lineCol = const Color(0xFFFF5252); ic = Icons.thermostat_rounded;   valLabel = val != null ? '${val}°C'  : ''; break;
+      case 'severe_aqi':   lineCol = const Color(0xFF9C6FFF); ic = Icons.air_rounded;          valLabel = val != null ? 'AQI $val'  : ''; break;
+      default:             lineCol = gold;                     ic = Icons.bolt_rounded;          valLabel = val?.toString() ?? '';
+    }
+    final sevCol = sev == 'T3' ? const Color(0xFFFF5252)
+                 : sev == 'T2' ? const Color(0xFF4B9FFF)
+                 : gold;
+    final pct    = sev == 'T1' ? '25%' : sev == 'T2' ? '50%' : '100%';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF1E3352))),
+      child: Row(children: [
+        // Left accent + icon
+        Container(
+          width: 44, height: 44,
+          decoration: BoxDecoration(
+            color: lineCol.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(12),
+            border: Border(left: BorderSide(color: lineCol, width: 3))),
+          child: Icon(ic, color: lineCol, size: 20)),
+        const SizedBox(width: 12),
+        // Name + zone + date
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(_tn(type).replaceAll(RegExp(r'^.{2}'), '').trim(),
+            style: const TextStyle(color: Colors.white, fontSize: 14,
+              fontWeight: FontWeight.w700)),
+          Text(zone, style: const TextStyle(color: Color(0xFF7A8BB0), fontSize: 12)),
+          Text(date, style: const TextStyle(color: Color(0xFF4A5E7A), fontSize: 11)),
+        ])),
+        // Tier badge + value
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: sevCol.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8)),
+            child: Text(sev, style: TextStyle(color: sevCol,
+              fontSize: 12, fontWeight: FontWeight.w900))),
+          const SizedBox(height: 3),
+          Text(valLabel.isNotEmpty ? valLabel : pct,
+            style: const TextStyle(color: Color(0xFF7A8BB0), fontSize: 11)),
+        ]),
+      ]),
+    );
+  }
+
   Widget _label(String t) => Text(t,
     style: const TextStyle(color: gray, fontSize: 12,
       fontWeight: FontWeight.w700, letterSpacing: 0.7));
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ADMIN SUPPORT SCREEN — Worker help tickets
+// ═══════════════════════════════════════════════════════════════
+class AdminSupportScreen extends StatefulWidget {
+  const AdminSupportScreen({super.key});
+  @override
+  State<AdminSupportScreen> createState() => _AdminSupportScreenState();
+}
+
+class _AdminSupportScreenState extends State<AdminSupportScreen> {
+  static const bg   = Color(0xFF0D1829);
+  static const gold = Color(0xFFF5A623);
+  static const gray = Color(0xFF7A8BB0);
+  static const bdr  = Color(0xFF1E3352);
+
+  List<dynamic> _tickets = [];
+  bool _loading = true;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final t = await AdminApi.getSupportTickets();
+    if (mounted) setState(() { _tickets = t; _loading = false; });
+  }
+
+  Future<void> _resolve(int ticketId) async {
+    await AdminApi.resolveTicket(ticketId);
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: bg,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('Support Queries',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _load),
+        ],
+      ),
+      body: _loading
+        ? const Center(child: CircularProgressIndicator(color: Color(0xFF4B9FFF)))
+        : _tickets.isEmpty
+          ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.inbox_rounded, color: Colors.white24, size: 48),
+              SizedBox(height: 12),
+              Text('No support tickets yet.',
+                style: TextStyle(color: Colors.white38, fontSize: 15)),
+            ]))
+          : RefreshIndicator(
+              onRefresh: _load,
+              color: const Color(0xFF4B9FFF),
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: _tickets.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (_, i) => _ticketCard(_tickets[i]),
+              ),
+            ),
+    );
+  }
+
+  Widget _ticketCard(Map<String, dynamic> t) {
+    final isOpen     = t['status'] == 'open';
+    final statusCol  = isOpen ? const Color(0xFFF5A623) : const Color(0xFF00C853);
+    final statusLabel= isOpen ? 'Open' : 'Resolved';
+    final createdAt  = t['created_at']?.toString().substring(0, 16).replaceAll('T', ' ') ?? '';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F1F35),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: bdr),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          CircleAvatar(
+            backgroundColor: const Color(0xFF4B9FFF).withOpacity(0.15),
+            radius: 20,
+            child: Text(
+              (t['worker_name'] ?? 'W').substring(0, 1).toUpperCase(),
+              style: const TextStyle(color: Color(0xFF4B9FFF), fontWeight: FontWeight.w900)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(t['worker_name'] ?? 'Unknown Worker',
+              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+            Text('#GS-${t['worker_id']} · ${t['worker_phone'] ?? ''} · ${t['zone'] ?? ''} · ${(t['plan_type'] ?? '').toString().toUpperCase()}',
+              style: const TextStyle(color: Color(0xFF7A8BB0), fontSize: 11)),
+          ])),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusCol.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(99)),
+            child: Text(statusLabel,
+              style: TextStyle(color: statusCol, fontSize: 11, fontWeight: FontWeight.w700)),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Text(t['subject'] ?? 'General Query',
+          style: const TextStyle(color: Color(0xFF4B9FFF), fontSize: 12,
+            fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+        const SizedBox(height: 6),
+        Text(t['message'] ?? '',
+          style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5)),
+        const SizedBox(height: 12),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(createdAt, style: const TextStyle(color: Color(0xFF7A8BB0), fontSize: 11)),
+          if (isOpen)
+            GestureDetector(
+              onTap: () => _resolve(t['id'] as int),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C853).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(color: const Color(0xFF00C853).withOpacity(0.4))),
+                child: const Text('Mark Resolved',
+                  style: TextStyle(color: Color(0xFF00C853),
+                    fontSize: 12, fontWeight: FontWeight.w700)),
+              ),
+            ),
+        ]),
+      ]),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ALL TRIGGERS SCREEN
+// ═══════════════════════════════════════════════════════════════
+class AllTriggersScreen extends StatefulWidget {
+  final List<dynamic> triggers;
+  const AllTriggersScreen({super.key, required this.triggers});
+  @override
+  State<AllTriggersScreen> createState() => _AllTriggersScreenState();
+}
+
+class _AllTriggersScreenState extends State<AllTriggersScreen> {
+  static const bg  = Color(0xFF0D1829);
+  static const bdr = Color(0xFF1E3352);
+  static const gray = Color(0xFF7A8BB0);
+  static const gold = Color(0xFFF5A623);
+
+  String _filter = 'all';
+
+  List<dynamic> get _filtered {
+    if (_filter == 'all') return widget.triggers;
+    return widget.triggers.where((t) => t['trigger_type'] == _filter).toList();
+  }
+
+  String _tn(String? t) {
+    switch (t) {
+      case 'heavy_rain':   return 'Heavy Rain';
+      case 'flood_alert':  return 'Flood Alert';
+      case 'extreme_heat': return 'Extreme Heat';
+      case 'severe_aqi':   return 'Severe AQI';
+      default:             return t ?? 'Trigger';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final types = ['all', 'heavy_rain', 'extreme_heat', 'severe_aqi', 'flood_alert'];
+    return Scaffold(
+      backgroundColor: bg,
+      appBar: AppBar(
+        backgroundColor: bg,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('All Triggers',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: Colors.white)),
+          Text('${widget.triggers.length} total',
+            style: const TextStyle(color: Color(0xFF7A8BB0), fontSize: 12)),
+        ]),
+      ),
+      body: Column(children: [
+        // Filter chips
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: types.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final t = types[i];
+              final label = t == 'all' ? 'All' : _tn(t);
+              final active = _filter == t;
+              return GestureDetector(
+                onTap: () => setState(() => _filter = t),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: active ? const Color(0xFF4B9FFF).withOpacity(0.15) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(
+                      color: active ? const Color(0xFF4B9FFF) : bdr)),
+                  child: Text(label, style: TextStyle(
+                    color: active ? const Color(0xFF4B9FFF) : gray,
+                    fontSize: 12, fontWeight: FontWeight.w700))),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: _filtered.isEmpty
+            ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.bolt_rounded, color: Colors.white24, size: 48),
+                SizedBox(height: 12),
+                Text('No triggers for this filter',
+                  style: TextStyle(color: Colors.white38, fontSize: 14)),
+              ]))
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                itemCount: _filtered.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, i) => _row(_filtered[i] as Map<String, dynamic>),
+              ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _row(Map<String, dynamic> t) {
+    final type = t['trigger_type'] as String? ?? '';
+    final sev  = t['severity']     as String? ?? 'T2';
+    final val  = t['value'];
+    final zone = t['zone']         as String? ?? '';
+    final raw  = t['created_at']?.toString() ?? '';
+    final date = raw.length >= 10 ? raw.substring(0, 10) : raw;
+
+    Color lineCol; IconData ic; String valLabel;
+    switch (type) {
+      case 'heavy_rain':   lineCol = const Color(0xFF4B9FFF); ic = Icons.water_drop_rounded;  valLabel = val != null ? '${val}mm'  : ''; break;
+      case 'flood_alert':  lineCol = const Color(0xFF00C853); ic = Icons.flood_rounded;        valLabel = val != null ? '${val}mm'  : ''; break;
+      case 'extreme_heat': lineCol = const Color(0xFFFF5252); ic = Icons.thermostat_rounded;   valLabel = val != null ? '${val}°C'  : ''; break;
+      case 'severe_aqi':   lineCol = const Color(0xFF9C6FFF); ic = Icons.air_rounded;          valLabel = val != null ? 'AQI $val'  : ''; break;
+      default:             lineCol = gold;                     ic = Icons.bolt_rounded;          valLabel = val?.toString() ?? '';
+    }
+    final sevCol = sev == 'T3' ? const Color(0xFFFF5252)
+                 : sev == 'T2' ? const Color(0xFF4B9FFF) : gold;
+    final pct    = sev == 'T1' ? '25%' : sev == 'T2' ? '50%' : '100%';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: bdr)),
+      child: Row(children: [
+        Container(
+          width: 44, height: 44,
+          decoration: BoxDecoration(
+            color: lineCol.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(12),
+            border: Border(left: BorderSide(color: lineCol, width: 3))),
+          child: Icon(ic, color: lineCol, size: 20)),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(_tn(type), style: const TextStyle(color: Colors.white, fontSize: 14,
+            fontWeight: FontWeight.w700)),
+          Text(zone, style: const TextStyle(color: Color(0xFF7A8BB0), fontSize: 12)),
+          Text(date, style: const TextStyle(color: Color(0xFF4A5E7A), fontSize: 11)),
+        ])),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: sevCol.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8)),
+            child: Text(sev, style: TextStyle(color: sevCol,
+              fontSize: 12, fontWeight: FontWeight.w900))),
+          const SizedBox(height: 3),
+          Text(valLabel.isNotEmpty ? valLabel : pct,
+            style: const TextStyle(color: Color(0xFF7A8BB0), fontSize: 11)),
+        ]),
+      ]),
+    );
+  }
 }
