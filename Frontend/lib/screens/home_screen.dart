@@ -195,12 +195,13 @@ class _HomeScreenState extends State<HomeScreen>
         Uri.parse('$BASE_URL/demo/trigger'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'zone':        zone,
-          'type':        type,
-          'severity':    severity,
-          'value':       value,
-          'worker_id':   widget.workerId,
-          'force_fraud': forceFraud,
+          'zone':          zone,
+          'type':          type,
+          'severity':      severity,
+          'value':         value,
+          'worker_id':     widget.workerId,
+          'force_fraud':   forceFraud,
+          'is_auto_popup': true,
         }),
       );
       if (res.statusCode == 200) {

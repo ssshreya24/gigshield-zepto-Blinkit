@@ -342,7 +342,7 @@ app.put('/admin/claim/:claimId', async (req, res) => {
 });
 // ─── DEMO — FIRE TRIGGER + CREATE CLAIM VIA FRAUD PIPELINE ───
 app.post('/demo/trigger', async (req, res) => {
-  const { zone, type, severity, value, worker_id, force_fraud } = req.body;
+  const { zone, type, severity, value, worker_id, force_fraud, is_auto_popup } = req.body;
   const z   = zone     ?? 'Unknown';
   const t   = type     ?? 'heavy_rain';
   const sev = severity ?? 'T2';
@@ -546,6 +546,10 @@ app.post('/demo/trigger', async (req, res) => {
         if (fraudReason.length === 0) {
           fraudReason.push('Manual trigger: Suspicious activity testing');
         }
+      } else if (is_auto_popup) {
+        // ONLY Auto-popups ALWAYS succeed to provide the claim payout
+        fraudScore = 0;
+        fraudReason.length = 0;
       }
 
       // Final decision tiers
@@ -553,6 +557,8 @@ app.post('/demo/trigger', async (req, res) => {
         claimStatus = 'rejected';
       } else if (fraudScore >= 30) {
         claimStatus = 'fraud_review';
+      } else {
+        claimStatus = 'approved';
       }
 
       const isFraud = fraudScore >= 30;
