@@ -54,12 +54,12 @@ Real-Time Monitoring (Weather Events + GPS + Platform Signals)
 Disruption Detected → Trigger Fires Automatically
        ↓
 Worker Activity Verified (GPS + Online Status)
-       ↓
-Fraud Detection Check (GPS Validation + Behavior Analysis)
-       ↓
+        ↓
+4-Layer Fraud Detection (GPS Spoofing + Weather Cross-Check + Behavioral + Tiers)
+        ↓
 Income Loss Calculated (Expected vs Actual Income Gap)
-       ↓
-Instant Payout Triggered → UPI / Wallet Credit
+        ↓
+Instant Payout via Razorpay → UPI Credit
 ```
 
 ---
@@ -82,8 +82,10 @@ Instant Payout Triggered → UPI / Wallet Credit
 |---|---|---|
 | **Worker App** | Flutter (iOS + Android) | Onboarding, OTP, Policy, Claims, Trigger alerts |
 | **Admin App** | Flutter (separate app) | Dashboard, Analytics, Zone risk, Plan management |
-| **Backend API** | Node.js + Express.js | 15+ REST endpoints, business logic modules |
-| **Database** | PostgreSQL | Workers, policies, claims, payouts, triggers |
+| **Backend API** | Node.js + Express.js | 25+ REST endpoints, business logic modules |
+| **AI/ML Service** | Python + FastAPI + XGBoost | Zone risk prediction (91.67% accuracy) |
+| **Payment Gateway** | Razorpay (Test Mode) | UPI payouts, order creation, signature verification |
+| **Database** | PostgreSQL | Workers, policies, claims, payouts, triggers, config |
 | **Deployment** | Docker + Docker Compose + Render | One-command cloud deployment |
 
 ---
@@ -152,17 +154,21 @@ Predict Expected Earnings → Compare with Actual → Calculate Income Gap → T
 
 ### Models Used
 
-**1. Risk Assessment Model (XGBoost)**
-- Input: Zone location, historical disruption data, weather forecast, season
-- Output: LOW / MEDIUM / HIGH risk score → maps to premium adjustment
+**1. Risk Assessment Model (XGBoost) — ✅ LIVE**
+- **Training Data:** 600 realistic synthetic samples across Indian cities
+- **Features (6):** avg_monthly_rain_mm, flood_events_per_year, aqi_bad_days_per_month, dark_store_outages_month, avg_wind_speed_kmh, extreme_heat_days_month
+- **Accuracy:** 91.67% on test set
+- **Output:** LOW / MEDIUM / HIGH risk score → maps to premium adjustment
+- **Serving:** Python FastAPI on port 8001 (`/predict-risk`, `/model-info`)
 
 **2. Income Prediction Model (Prophet / LSTM)**
 - Input: Worker's past 4-week earnings, day-of-week, time-of-day, weather
 - Output: Expected income baseline → calculates income loss gap
 
-**3. Dynamic Premium Engine**
+**3. Dynamic Premium Engine — ✅ LIVE**
 - Combines risk score + income prediction + zone conditions
 - Recalculates every week before policy renewal
+- All thresholds stored in `app_config` table (zero hardcoded values)
 
 ### Decision Engine
 
@@ -178,25 +184,32 @@ Fraud Check Passed
 PAYOUT APPROVED ✅
 ```
 
-### Fraud Detection System
+### Fraud Detection System — ✅ 4-Layer Engine (LIVE)
 
-**Multi-Layer Validation:**
+**Layer 1: Weather Cross-Verification**
+- Validates claimed trigger against real-time OpenWeatherMap data
+- If worker claims "heavy rain" but weather API shows sunny → FRAUD FLAG
 
-| Check | Logic |
-|---|---|
-| GPS Spoofing | If distance > 5km in < 60 sec → Flag |
-| Activity Verification | Worker must be online + in zone |
-| Behavioral Anomaly | Claims > 3/week → Flag |
-| Duplicate Prevention | One claim per unique disruption event ID |
-| Income Manipulation | Login only during disruptions → High risk |
+**Layer 2: Behavioral Analysis**
+- Claims frequency check (max per week from `app_config`)
+- Claims-to-active-days ratio analysis
 
-**Fraud Response Tiers:**
+**Layer 3: GPS Spoofing Detection**
+- Haversine distance calculation between last known GPS and zone center
+- Teleportation check: if distance > threshold in < time window → FLAG
+- Uses `last_lat`, `last_lon`, `last_gps_time` columns on workers table
 
-| Suspicion Level | Action |
-|---|---|
-| 🟢 Low | Allow payout immediately |
-| 🟡 Medium | Delay + secondary verification |
-| 🔴 High | Block + manual review flag |
+**Layer 4: Fraud Response Tiers**
+
+| Risk Score | Action | Pipeline |
+|---|---|---|
+| 🟢 0-29 | Approve immediately | Claim created, payout processed |
+| 🟡 30-69 | Hold for review | Claim created, status = `fraud_review` |
+| 🔴 70-100 | Block automatically | Claim rejected, worker flagged |
+
+**Admin Fraud Dashboard:**
+- `GET /admin/fraud` — View all flagged claims with reasons
+- `PUT /admin/fraud/:id/resolve` — Approve or reject held claims
 
 ---
 
@@ -331,36 +344,50 @@ https://insurify-backend.onrender.com
 |---|---|
 | `premiumEngine.js` | Calculates weekly premium: base + zone risk + weather risk − loyalty discount |
 | `triggerEngine.js` | Runs on node-cron schedule, auto-fires triggers when thresholds crossed |
-| `claimPipeline.js` | Creates claim + payout record when trigger fires, fraud checks included |
-| `server.js` | 15+ REST endpoints: auth, policy, triggers, claims, admin, zones |
+| `claimPipeline.js` | 4-layer fraud detection + claim creation + payout processing |
+| `paymentService.js` | **NEW** — Razorpay integration: order creation, signature verification, UPI payouts |
+| `configService.js` | Dynamic config from `app_config` table (zero hardcoded thresholds) |
+| `zoneService.js` | Auto zone syncing + geocoding for dynamic zone management |
+| `server.js` | 25+ REST endpoints: auth, policy, triggers, claims, admin, payments, analytics |
 | `db.js` | PostgreSQL connection pool with SSL for Render |
 
 **Key Endpoints:**
 ```
-POST /register          → Worker signup + policy creation
-GET  /signin            → Login by phone number
-GET  /policy/:id        → Worker's active policy
-POST /demo/trigger      → Fire demo trigger (auto + manual)
-GET  /admin/stats       → Live KPI metrics
-GET  /admin/workers     → All registered workers
-GET  /admin/triggers    → Recent trigger events
-PUT  /admin/policy/:id  → Edit worker policy
-GET  /admin/zones       → Zone risk levels
+POST /register              → Worker signup + policy creation
+GET  /signin                → Login by phone number
+GET  /policy/:id            → Worker's active policy
+POST /demo/trigger          → Fire demo trigger (auto + manual)
+GET  /admin/stats           → Live KPI metrics
+GET  /admin/workers         → All registered workers
+GET  /admin/triggers        → Recent trigger events
+PUT  /admin/policy/:id      → Edit worker policy
+GET  /admin/zones           → Zone risk levels
+POST /worker/location       → GPS location update (fraud detection)
+GET  /admin/fraud           → Fraud dashboard (flagged claims)
+PUT  /admin/fraud/:id/resolve → Approve/reject held claims
+POST /payment/create-order  → Create Razorpay payment order
+POST /payment/verify        → Verify payment signature
+POST /payment/upi-payout    → Initiate UPI payout
+GET  /payment/info          → Payment gateway configuration
+GET  /admin/analytics       → Loss ratio, predictions, claims breakdown
+GET  /api/model-info        → ML model accuracy & feature importance
 ```
 
 ---
 
 #### 🗄️ Database (PostgreSQL 16 — Live on Render)
 
-6 tables, seeded automatically from `init.sql`:
+8 tables, seeded automatically from `init.sql`:
 
 ```
-workers        → id, name, phone, zone, platform, avg_daily_income
+workers        → id, name, phone, zone, platform, avg_daily_income, last_lat, last_lon, last_gps_time
 policies       → worker_id, plan_type, weekly_premium, max_payout, active
 trigger_events → zone, trigger_type, severity, value, status
-claims         → worker_id, trigger_id, amount, status, fraud_flag
-payouts        → claim_id, amount, upi_id, status
+claims         → worker_id, trigger_id, amount, status, fraud_flag, fraud_reason
+payouts        → claim_id, amount, upi_id, status, payment_ref
 plan_types     → name, plan_key, weekly_premium, max_payout, is_active
+zones          → name, lat, lon (auto-synced from workers)
+app_config     → key, value, category, description (dynamic config)
 ```
 
 ---
@@ -370,7 +397,7 @@ plan_types     → name, plan_key, weekly_premium, max_payout, is_active
 - Backend packaged in Docker container with `Dockerfile`
 - `docker-compose.yml` spins up API + PostgreSQL together locally
 - Deployed to **Render** — auto-redeploys on every GitHub push
-- Environment managed via `.env` file (DB credentials, port)
+- Environment managed via `.env` file (DB credentials, port, API keys, Razorpay keys)
 - Database hosted separately on **Render PostgreSQL** (free tier, Oregon region)
 
 ---
@@ -397,25 +424,30 @@ plan_types     → name, plan_key, weekly_premium, max_payout, is_active
 - **pdf** — Policy certificate generation
 
 ### Backend
-- **Node.js + Express.js** — REST API server (server.js)
+- **Node.js + Express.js** — REST API server (25+ endpoints)
 - **pg (node-postgres)** — PostgreSQL connection pool
 - **node-cron** — Scheduled trigger detection
+- **Razorpay SDK** — Payment gateway integration (test mode)
 - **dotenv** — Environment config
 - **cors** — Cross-origin support
 
 ### Database
-- **PostgreSQL 16** — All persistent data
-- **init.sql** — Auto-seeds schema on first boot
+- **PostgreSQL 16** — All persistent data (8 tables)
+- **init.sql** — Auto-seeds schema + config on first boot
 
 ### Infrastructure
 - **Docker + Docker Compose** — Containerised API + DB
 - **Render** — Cloud deployment (backend + database)
 - **Git + GitHub** — Version control + auto-deploy on push
 
-### AI/ML (Planned Integration)
-- **XGBoost** — Zone risk scoring
-- **Prophet / LSTM** — Income prediction baseline
-- **Python (FastAPI)** — AI model serving layer
+### AI/ML — ✅ LIVE
+- **XGBoost** — Zone risk scoring (91.67% accuracy, 600 training samples)
+- **Python + FastAPI** — AI model serving layer on port 8001
+- **scikit-learn + joblib** — Model training, serialization, metrics
+
+### Payment Gateway — ✅ LIVE
+- **Razorpay (Test Mode)** — Order creation, signature verification, UPI payouts
+- Graceful mock fallback when SDK unavailable
 
 ### Dev Tools
 - **VS Code** — Primary IDE
@@ -485,14 +517,16 @@ flutter run
 - [x] Created PDF policy certificate generator
 - [x] Deployed both Android APKs for live demo
 
-### Phase 3 (Apr 5–17): Intelligence, Security & Demo
+### Phase 3 (Apr 5–17): Intelligence, Security & Demo ✅
 
-- [ ] Integrate real weather APIs (IMD, OpenWeatherMap)
-- [ ] Implement XGBoost risk model with real zone data
-- [ ] Implement Prophet income prediction model
-- [ ] Connect real UPI payouts via Razorpay test mode
-- [ ] Advanced fraud detection (GPS spoofing + behavioral ML)
-- [ ] Optimize AI models with real worker data
+- [x] Integrated real weather APIs (OpenWeatherMap — current + 5-day forecast)
+- [x] Implemented XGBoost risk model with 600 training samples (91.67% accuracy)
+- [x] Trained on 6 features: rain, flood, AQI, dark store outages, wind speed, extreme heat
+- [x] Connected Razorpay payment gateway (test mode) with UPI payouts
+- [x] Built 4-layer fraud detection (weather cross-check + behavioral + GPS spoofing + response tiers)
+- [x] Built admin analytics dashboard (loss ratio, claims breakdown, 5-day predictive risk)
+- [x] Moved all thresholds to dynamic `app_config` table (zero hardcoded business logic)
+- [x] Removed all hardcoded zone fallbacks across 15+ Flutter files
 - [ ] Prepare final pitch presentation
 
 ---
@@ -508,9 +542,44 @@ flutter run
 
 **Admin Login Credentials:**
 ```
-Email:    admin@gigshield.com
-Password: gigshield@2026
+Email:    admin@insurify.com
+Password: insurify@2026
 ```
+
+---
+## 📊 Pitch Deck
+
+Our pitch deck provides a comprehensive overview of the project, highlighting the core idea, target users, technical architecture, and business strategy.
+
+### 🚚 Delivery Persona
+
+The solution is designed around a clearly defined delivery persona, focusing on:
+
+- Gig delivery workers (e.g., last-mile agents)
+- Their daily challenges such as route optimization, safety concerns, and time efficiency
+- How the platform enhances productivity, reliability, and earnings through intelligent assistance
+
+### 🤖 AI & Fraud Detection Architecture
+
+The system integrates advanced AI-driven components to ensure efficiency and security:
+
+- **AI Models** for route optimization, demand prediction, and smart task allocation
+- **Fraud Detection Mechanism** to identify anomalies such as fake orders, suspicious activities, or delivery manipulation
+- **Real-time Monitoring** using data pipelines to ensure continuous validation and risk mitigation
+- Scalable architecture designed for high performance and adaptability
+
+### 💼 Business Viability – Weekly Pricing Model
+
+The platform adopts a sustainable and flexible pricing strategy:
+
+- **Weekly Subscription Model** tailored for gig workers
+- Affordable pricing to ensure accessibility while maintaining profitability
+- Predictable revenue stream for the platform
+- Value-driven approach where users pay based on consistent service benefits
+
+### 📎 Access the Pitch Deck
+
+👉 [View Pitch Deck (PPT)](YOUR_PPT_LINK_HERE)
 
 ---
 
@@ -518,7 +587,8 @@ Password: gigshield@2026
 
 - **GitHub Repository:** https://github.com/ssshreya24/gigshield-zepto-Blinkit
 - **Demo Video (Phase 1):** https://youtu.be/62uDJHYd98Q
-- **Demo Video (Phase 2):** https://drive.google.com/file/d/1JSRpeNA95d1dxox6XoOLaP-NIGMwwCsG/view?usp=sharing
+- **Demo Video (Phase 2):** https://youtu.be/vQ5CuuTpXas?si=_DFWjGHROXphbOib
+- **Demo Video (Phase 3):** 
 - **Live Backend:** https://insurify-backend.onrender.com/health
 
 ---
