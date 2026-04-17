@@ -409,8 +409,8 @@ app_config     → key, value, category, description (dynamic config)
 | **Backend API** | https://insurify-backend.onrender.com |
 | **Health Check** | https://insurify-backend.onrender.com/health |
 | **Database** | PostgreSQL on Render (Oregon) |
-| **Worker APK** | [⬇️ Download Worker App](https://drive.google.com/file/d/1JSRpeNA95d1dxox6XoOLaP-NIGMwwCsG/view?usp=sharing) |
-| **Admin APK** | [⬇️ Download Admin App](https://drive.google.com/file/d/1JSRpeNA95d1dxox6XoOLaP-NIGMwwCsG/view?usp=sharing) |
+| **Worker APK** | [⬇️ Download Worker App](https://drive.google.com/drive/folders/189n31S8tp4TIGM1hf21dN6LYR0MTS-3W?usp=sharing) |
+| **Admin APK** | [⬇️ Download Admin App](https://drive.google.com/drive/folders/189n31S8tp4TIGM1hf21dN6LYR0MTS-3W?usp=sharing) |
 
 ---
 
@@ -535,8 +535,8 @@ flutter run
 
 | App | Download |
 |---|---|
-| **Worker App (APK)** | [Download Insurify Worker](https://drive.google.com/file/d/1JSRpeNA95d1dxox6XoOLaP-NIGMwwCsG/view?usp=sharing) |
-| **Admin App (APK)** | [Download Insurify Admin](https://drive.google.com/file/d/1JSRpeNA95d1dxox6XoOLaP-NIGMwwCsG/view?usp=sharing) |
+| **Worker App (APK)** | [Download Insurify Worker](https://drive.google.com/drive/folders/189n31S8tp4TIGM1hf21dN6LYR0MTS-3W?usp=sharing) |
+| **Admin App (APK)** | [Download Insurify Admin](https://drive.google.com/drive/folders/189n31S8tp4TIGM1hf21dN6LYR0MTS-3W?usp=sharing) |
 
 > Install on any Android device. If blocked → Settings → Security → Allow Unknown Sources → Install.
 
