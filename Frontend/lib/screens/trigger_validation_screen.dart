@@ -225,7 +225,7 @@ class _TriggerValidationScreenState
                   color: gold, size: 16),
                 const SizedBox(width: 8),
                 Expanded(child: Text(
-                  '${widget.policy?['zone'] ?? 'Koramangala'} · '
+                  '${widget.policy?['zone'] ?? 'Your Zone'} · '
                   '${widget.claimableTriggers.length} triggers verified',
                   style: const TextStyle(
                     color: Colors.white60, fontSize: 13))),

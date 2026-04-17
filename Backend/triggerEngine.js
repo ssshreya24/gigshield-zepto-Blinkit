@@ -1,24 +1,23 @@
 const axios  = require('axios');
 const cron   = require('node-cron');
 const pool   = require('./db');
+const { checkWeatherTriggers } = require('./weatherTrigger');
+const { getAllZones, geocodeZone, syncZonesFromWorkers } = require('./zoneService');
+const { getTriggerThresholds, getPayoutMap, getConfig } = require('./configService');
 require('dotenv').config();
-
-const ZONES = [
-  { name: 'Koramangala', lat: 12.9352, lon: 77.6245 },
-  { name: 'Indiranagar',  lat: 12.9784, lon: 77.6408 },
-  { name: 'Whitefield',   lat: 12.9698, lon: 77.7500 },
-  { name: 'HSR Layout',   lat: 12.9116, lon: 77.6389 },
-  { name: 'Marathahalli', lat: 12.9591, lon: 77.6974 },
-  { name: 'Kothrud',      lat: 18.5074, lon: 73.8077 },
-  { name: 'Baner',        lat: 18.5590, lon: 73.7868 },
-  { name: 'Bellandur',    lat: 12.9259, lon: 77.6762 },
-  { name: 'Jayanagar',    lat: 12.9308, lon: 77.5839 },
-  { name: 'Andheri',      lat: 19.1136, lon: 72.8697 },
-];
 
 // ── Fetch real weather for one zone ──────────────────────
 async function checkWeather(zone) {
   try {
+    const lat = zone.lat;
+    const lon = zone.lon;
+
+    if (!lat || !lon) {
+      const coords = await geocodeZone(zone.name);
+      zone.lat = coords.lat;
+      zone.lon = coords.lon;
+    }
+
     const url = `https://api.openweathermap.org/data/2.5/weather`
       + `?lat=${zone.lat}&lon=${zone.lon}`
       + `&appid=${process.env.WEATHER_API_KEY}`
@@ -34,7 +33,7 @@ async function checkWeather(zone) {
       humidity:    data.main?.humidity ?? 50,
       windSpeed:   data.wind?.speed  ?? 0,
       description: data.weather?.[0]?.description ?? '',
-      aqi:         0, // AQI needs separate API call below
+      aqi:         0,
     };
   } catch (err) {
     console.error(`Weather check failed for ${zone.name}:`, err.message);
@@ -51,8 +50,6 @@ async function checkAQI(zone) {
 
     const res  = await axios.get(url);
     const aqi  = res.data?.list?.[0]?.main?.aqi ?? 0;
-    // OWM AQI: 1=Good 2=Fair 3=Moderate 4=Poor 5=VeryPoor
-    // Convert to standard AQI scale approx
     const aqiMap = { 1: 25, 2: 75, 3: 150, 4: 250, 5: 350 };
     return aqiMap[aqi] ?? 0;
   } catch (err) {
@@ -60,61 +57,62 @@ async function checkAQI(zone) {
   }
 }
 
-// ── Evaluate which triggers should fire ──────────────────
+// ── Evaluate triggers using DB-configured thresholds ─────
 async function evaluateTriggers(weatherData) {
   const triggers = [];
   const zone     = weatherData.zone;
+  const th       = await getTriggerThresholds();
 
-  // 1. Heavy Rain → rainfall > 10mm/hour
-  if (weatherData.rainfall > 10) {
+  // 1. Heavy Rain
+  if (weatherData.rainfall > th.rain_mm) {
     triggers.push({
       zone,
       trigger_type: 'heavy_rain',
-      severity:     weatherData.rainfall > 50 ? 'T3' : 'T2',
+      severity:     weatherData.rainfall > th.rain_t3_mm ? 'T3' : 'T2',
       value:        weatherData.rainfall,
       unit:         'mm/hr',
     });
     console.log(`  [TRIGGER] Heavy Rain in ${zone}: ${weatherData.rainfall}mm`);
   }
 
-  // 2. Extreme Heat → temperature > 40°C
-  if (weatherData.temperature > 40) {
+  // 2. Extreme Heat
+  if (weatherData.temperature > th.heat_c) {
     triggers.push({
       zone,
       trigger_type: 'extreme_heat',
-      severity:     weatherData.temperature > 45 ? 'T2' : 'T1',
+      severity:     weatherData.temperature > th.heat_t2_c ? 'T2' : 'T1',
       value:        weatherData.temperature,
       unit:         'celsius',
     });
     console.log(`  [TRIGGER] Extreme Heat in ${zone}: ${weatherData.temperature}°C`);
   }
 
-  // 3. Severe AQI → aqi > 200
-  if (weatherData.aqi > 200) {
+  // 3. Severe AQI
+  if (weatherData.aqi > th.aqi) {
     triggers.push({
       zone,
       trigger_type: 'severe_aqi',
-      severity:     weatherData.aqi > 300 ? 'T3' : 'T2',
+      severity:     weatherData.aqi > th.aqi_t3 ? 'T3' : 'T2',
       value:        weatherData.aqi,
       unit:         'AQI',
     });
     console.log(`  [TRIGGER] Severe AQI in ${zone}: ${weatherData.aqi}`);
   }
 
-  // 4. Storm / High Wind → windSpeed > 60 km/h
-  if (weatherData.windSpeed > 60) {
+  // 4. Storm / High Wind
+  if (weatherData.windSpeed > th.wind_kmh) {
     triggers.push({
       zone,
       trigger_type: 'storm',
-      severity:     weatherData.windSpeed > 90 ? 'T3' : 'T2',
+      severity:     weatherData.windSpeed > th.wind_t3_kmh ? 'T3' : 'T2',
       value:        weatherData.windSpeed,
       unit:         'km/h',
     });
     console.log(`  [TRIGGER] Storm in ${zone}: ${weatherData.windSpeed}km/h wind`);
   }
 
-  // 5. Flood → rainfall > 50mm (heavy flooding threshold)
-  if (weatherData.rainfall > 50) {
+  // 5. Flood
+  if (weatherData.rainfall > th.flood_mm) {
     triggers.push({
       zone,
       trigger_type: 'flood_alert',
@@ -131,12 +129,13 @@ async function evaluateTriggers(weatherData) {
 // ── Save trigger to DB + auto-fire claims ────────────────
 async function saveTriggerAndFireClaims(trigger) {
   try {
-    // Check if same trigger already fired in last 2 hours
+    const dedupHours = await getConfig('trigger_dedup_hours');
+
     const existing = await pool.query(
       `SELECT id FROM trigger_events
        WHERE zone = $1
        AND trigger_type = $2
-       AND created_at > NOW() - INTERVAL '2 hours'
+       AND created_at > NOW() - INTERVAL '${dedupHours} hours'
        AND status = 'active'`,
       [trigger.zone, trigger.trigger_type]
     );
@@ -146,7 +145,6 @@ async function saveTriggerAndFireClaims(trigger) {
       return;
     }
 
-    // Save to DB
     const result = await pool.query(
       `INSERT INTO trigger_events
          (zone, trigger_type, severity, value, status)
@@ -159,7 +157,6 @@ async function saveTriggerAndFireClaims(trigger) {
     const triggerId = result.rows[0].id;
     console.log(`  [SAVED] Trigger ${triggerId}: ${trigger.trigger_type} in ${trigger.zone}`);
 
-    // Auto-fire claims for all workers in this zone
     await fireClaimsForZone(triggerId, trigger);
 
   } catch (err) {
@@ -168,72 +165,16 @@ async function saveTriggerAndFireClaims(trigger) {
 }
 
 // ── Auto-create claims for workers in zone ───────────────
+// Delegates to claimPipeline.js which handles 4-layer fraud detection
 async function fireClaimsForZone(triggerId, trigger) {
   try {
-    // Get all workers with active policies in this zone
-    const workers = await pool.query(
-      `SELECT w.id as worker_id, w.name,
-              p.id as policy_id, p.max_payout, p.plan_type
-       FROM workers w
-       JOIN policies p ON p.worker_id = w.id
-       WHERE w.zone = $1 AND p.active = TRUE`,
-      [trigger.zone]
+    const { processClaimsForTrigger } = require('./claimPipeline');
+    await processClaimsForTrigger(
+      triggerId,
+      trigger.zone,
+      trigger.severity,
+      trigger.trigger_type  // passes trigger type for weather cross-verification
     );
-
-    console.log(`  [CLAIMS] Firing for ${workers.rows.length} workers in ${trigger.zone}`);
-
-    // Payout % based on severity
-    const pctMap = { 'T1': 0.25, 'T2': 0.50, 'T3': 1.00 };
-    const pct    = pctMap[trigger.severity] ?? 0.50;
-
-    for (const worker of workers.rows) {
-
-      // Fraud check — no duplicate claim in last 24h
-      const dupe = await pool.query(
-        `SELECT id FROM claims
-         WHERE worker_id = $1
-         AND trigger_type = $2
-         AND created_at > NOW() - INTERVAL '24 hours'`,
-        [worker.worker_id, trigger.trigger_type]
-      );
-
-      if (dupe.rows.length > 0) {
-        console.log(`  [FRAUD] Duplicate claim blocked for worker ${worker.worker_id}`);
-        continue;
-      }
-
-      const payoutAmt = Math.round(worker.max_payout * pct);
-
-      // Create claim
-      const claim = await pool.query(
-        `INSERT INTO claims
-           (worker_id, policy_id, trigger_event_id,
-            trigger_type, zone, severity,
-            expected_income, actual_income, payout_amount,
-            status, fraud_flag, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6,
-                 $7, $8, $9, 'approved', false)
-         RETURNING id`,
-        [
-          worker.worker_id, worker.policy_id, triggerId,
-          trigger.trigger_type, trigger.zone, trigger.severity,
-          800, 0, payoutAmt
-        ]
-      );
-
-      const claimId = claim.rows[0].id;
-
-      // Create payout record
-      await pool.query(
-        `INSERT INTO payouts
-           (claim_id, worker_id, amount,
-            payment_method, status)
-         VALUES ($1, $2, $3, 'UPI', 'completed')`,
-        [claimId, worker.worker_id, payoutAmt]
-      );
-
-      console.log(`  [PAYOUT] Worker ${worker.name}: ₹${payoutAmt} → ${trigger.trigger_type}`);
-    }
   } catch (err) {
     console.error('Error firing claims:', err.message);
   }
@@ -254,11 +195,33 @@ async function fireTrigger({ zone, type, severity, value }) {
 // ── Main weather check loop ───────────────────────────────
 async function runWeatherCheck() {
   console.log('\n[WEATHER CHECK] Starting...', new Date().toISOString());
-  for (const zone of ZONES) {
+
+  const zones = await getAllZones();
+
+  if (zones.length === 0) {
+    console.log('[WEATHER CHECK] No zones found in DB. Register workers to auto-detect zones.');
+    return;
+  }
+
+  console.log(`[WEATHER CHECK] Monitoring ${zones.length} zones: ${zones.map(z => z.name).join(', ')}`);
+
+  for (const zone of zones) {
+    const result = await checkWeatherTriggers(zone.name);
+    for (const trigger of result.triggers) {
+      console.log(`REAL TRIGGER: ${trigger.type} in ${zone.name}`);
+      await saveTriggerAndFireClaims({
+        zone: zone.name,
+        trigger_type: trigger.type,
+        severity: trigger.severity,
+        value: trigger.value,
+      });
+    }
+  }
+
+  for (const zone of zones) {
     const weather = await checkWeather(zone);
     if (!weather) continue;
 
-    // Also fetch AQI
     weather.aqi = await checkAQI(zone);
 
     console.log(`  ${zone.name}: ${weather.temperature}°C, rain:${weather.rainfall}mm, AQI:${weather.aqi}`);
@@ -271,16 +234,18 @@ async function runWeatherCheck() {
   console.log('[WEATHER CHECK] Done.\n');
 }
 
-// ── Start cron job — runs every 30 minutes ────────────────
-function startCron() {
+// ── Start cron job ────────────────────────────────────────
+async function startCron() {
   console.log('[CRON] Weather trigger engine started');
-  console.log('[CRON] Checking every 30 minutes');
 
-  // Run immediately on startup
+  await syncZonesFromWorkers();
+
   runWeatherCheck();
 
-  // Then every 30 minutes
-  cron.schedule('*/30 * * * *', () => {
+  const interval = await getConfig('cron_interval_minutes');
+  console.log(`[CRON] Checking every ${interval} minutes`);
+
+  cron.schedule(`*/${interval} * * * *`, () => {
     runWeatherCheck();
   });
 }

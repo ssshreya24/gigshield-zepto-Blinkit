@@ -39,12 +39,58 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
 
   // Processing screen state
   int _checksDone = 0;
-  final List<Map<String, dynamic>> _checks = [
-    {'label': 'Weather API verified',     'icon': Icons.cloud_done_rounded,       'color': Color(0xFF4B9FFF)},
-    {'label': 'Zone risk confirmed',       'icon': Icons.location_on_rounded,       'color': Color(0xFF9C6FFF)},
-    {'label': 'Policy active',             'icon': Icons.shield_rounded,            'color': Color(0xFF00C853)},
-    {'label': 'Eligibility confirmed',     'icon': Icons.verified_user_rounded,     'color': Color(0xFFF5A623)},
-  ];
+  bool _isFraud = false;
+  String? _fraudReason;
+  String? _claimStatus;
+  List<Map<String, dynamic>> _checks = [];
+
+  void _buildChecks() {
+    _isFraud      = widget.triggers.any((t) => t['fraud_flag'] == true);
+    _fraudReason  = widget.triggers
+        .map((t) => t['fraud_reason']?.toString())
+        .where((r) => r != null && r.isNotEmpty)
+        .join('; ');
+    _claimStatus  = widget.triggers
+        .map((t) => t['claim_status']?.toString())
+        .firstWhere((s) => s != null, orElse: () => 'approved');
+    if (_fraudReason == null || _fraudReason!.isEmpty) {
+      _fraudReason = 'Suspicious activity detected';
+    }
+
+    final hasBehaviorAnomaly = widget.triggers.any((t) {
+      final p = t['behavioral_profile'] as Map?;
+      return p != null && ((p['claims_7d'] ?? 0) >= 3 || (p['claim_to_income_ratio'] ?? 0) > 3);
+    });
+
+    _checks = [
+      {'label': 'OpenWeatherMap API verified',       'icon': Icons.cloud_done_rounded,       'color': const Color(0xFF4B9FFF)},
+      {'label': 'XGBoost ML risk model scored',      'icon': Icons.psychology_rounded,        'color': const Color(0xFF9C6FFF)},
+      {
+        'label': hasBehaviorAnomaly
+          ? '⚠ Behavioral anomaly detected'
+          : 'Individual behavioral profile — normal',
+        'icon': hasBehaviorAnomaly ? Icons.person_off_rounded : Icons.person_search_rounded,
+        'color': hasBehaviorAnomaly ? const Color(0xFFFF6D00) : const Color(0xFF26A69A),
+        'isFraud': hasBehaviorAnomaly,
+      },
+      {
+        'label': _isFraud
+          ? '⚠ Fraud detected — flagged for review'
+          : '5-Layer fraud detection passed',
+        'icon': _isFraud ? Icons.gpp_bad_rounded : Icons.security_rounded,
+        'color': _isFraud ? const Color(0xFFFF5252) : const Color(0xFF00C853),
+        'isFraud': _isFraud,
+      },
+      {'label': 'Policy active & eligible',          'icon': Icons.shield_rounded,            'color': const Color(0xFFF5A623)},
+      {
+        'label': _isFraud
+          ? 'Razorpay payout HELD — under review'
+          : 'Razorpay payout initialized',
+        'icon': Icons.account_balance_rounded,
+        'color': _isFraud ? const Color(0xFFFF6D00) : const Color(0xFF2E86DE),
+      },
+    ];
+  }
 
   // Premium calculation state
   late int _basePrem;
@@ -68,11 +114,12 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
   @override
   void initState() {
     super.initState();
+    _buildChecks();
 
     _basePrem    = widget.policy?['weekly_premium'] ?? 49;
     _totalPayout = widget.triggers.fold(
       0, (s, t) => s + (t['amount'] as int? ?? 0));
-    _zone        = widget.policy?['zone'] ?? 'Koramangala';
+    _zone        = widget.policy?['zone'] ?? 'Your Zone';
     _triggerName = widget.triggers.map((t) {
       final val = t['name'] ?? t['label'];
       if (val == null || val.toString().trim().isEmpty || val.toString() == 'null') {
@@ -184,7 +231,7 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _backBtn(),
-        const SizedBox(height: 32),
+        const SizedBox(height: 16),
 
         // Header
         RichText(text: const TextSpan(
@@ -227,7 +274,7 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
           ]),
         ),
 
-        const SizedBox(height: 36),
+        const SizedBox(height: 20),
 
         // Processing Screen label
         Container(
@@ -241,61 +288,124 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
               fontSize: 11, letterSpacing: 0.8))),
         const SizedBox(height: 16),
 
-        // Checks
-        ..._checks.asMap().entries.map((e) {
-          final idx   = e.key;
-          final check = e.value;
-          final done  = _checksDone > idx;
-          final color = check['color'] as Color;
+        Expanded(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Checks
+                ..._checks.asMap().entries.map((e) {
+                  final idx   = e.key;
+                  final check = e.value;
+                  final done  = _checksDone > idx;
+                  final color = check['color'] as Color;
+                  final isFraudItem = check['isFraud'] == true;
 
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: 38, height: 38,
-                decoration: BoxDecoration(
-                  color: done
-                    ? color.withOpacity(0.15)
-                    : Colors.white.withOpacity(0.04),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: done
-                      ? color.withOpacity(0.5)
-                      : Colors.white.withOpacity(0.1))),
-                child: Icon(
-                  done
-                    ? Icons.check_rounded
-                    : check['icon'] as IconData,
-                  color: done ? color : Colors.white24,
-                  size: 18)),
-              const SizedBox(width: 14),
-              Expanded(child: Text(check['label'] as String,
-                style: TextStyle(
-                  color:      done ? Colors.white : Colors.white38,
-                  fontSize:   15,
-                  fontWeight: done ? FontWeight.w600 : FontWeight.w400))),
-              if (done)
-                Icon(Icons.check_circle_rounded,
-                  color: color, size: 20),
-            ]),
-          );
-        }),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Row(children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: 38, height: 38,
+                        decoration: BoxDecoration(
+                          color: done
+                            ? color.withOpacity(0.15)
+                            : Colors.white.withOpacity(0.04),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: done
+                              ? color.withOpacity(0.5)
+                              : Colors.white.withOpacity(0.1))),
+                        child: Icon(
+                          done
+                            ? (isFraudItem ? Icons.close_rounded : Icons.check_rounded)
+                            : check['icon'] as IconData,
+                          color: done ? color : Colors.white24,
+                          size: 18)),
+                      const SizedBox(width: 14),
+                      Expanded(child: Text(check['label'] as String,
+                        style: TextStyle(
+                          color:      done ? Colors.white : Colors.white38,
+                          fontSize:   15,
+                          fontWeight: done ? FontWeight.w600 : FontWeight.w400))),
+                      if (done)
+                        Icon(
+                          isFraudItem ? Icons.cancel_rounded : Icons.check_circle_rounded,
+                          color: color, size: 20),
+                    ]),
+                  );
+                }),
 
-        const Spacer(),
+                // ── FRAUD IMPACT CARD ──────────────────────────────
+                if (_isFraud && _checksDone >= 4) ...[
+                  const SizedBox(height: 8),
+                  AnimatedOpacity(
+                    opacity: _checksDone >= 4 ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 500),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF5252).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFFF5252).withOpacity(0.3)),
+                      ),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Row(children: [
+                          Icon(Icons.warning_amber_rounded, color: Color(0xFFFF5252), size: 18),
+                          SizedBox(width: 8),
+                          Text('Fraud Detection Report',
+                            style: TextStyle(color: Color(0xFFFF5252), fontSize: 14, fontWeight: FontWeight.w700)),
+                        ]),
+                        const SizedBox(height: 10),
+                        _fraudInfoRow('Reason', _fraudReason ?? 'Suspicious activity'),
+                        const SizedBox(height: 6),
+                        _fraudInfoRow('Status', (_claimStatus ?? 'fraud_review').toUpperCase()),
+                        const SizedBox(height: 6),
+                        _fraudInfoRow('ML Score', '${widget.triggers.firstOrNull?['fraud_score'] ?? '—'} / 100'),
+                        const SizedBox(height: 6),
+                        _fraudInfoRow('Probability', widget.triggers.firstOrNull?['fraud_probability']?.toString() ?? '—'),
+                        const SizedBox(height: 6),
+                        _fraudInfoRow('Impact', 'Payout held for manual review'),
+                        const SizedBox(height: 6),
+                        _fraudInfoRow('Action', 'Escalated to admin panel'),
+                      ]),
+                    ),
+                  ),
+                ],
 
-        // Auto label
-        Center(child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-          const Icon(Icons.auto_awesome_rounded,
-            color: Colors.white24, size: 14),
-          const SizedBox(width: 6),
-          const Text('Processing automatically...',
-            style: TextStyle(color: Colors.white24, fontSize: 12)),
-        ])),
+                const SizedBox(height: 16),
+
+                // Auto label
+                Center(child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                  const Icon(Icons.auto_awesome_rounded,
+                    color: Colors.white24, size: 14),
+                  const SizedBox(width: 6),
+                  Text(_isFraud ? 'Fraud review in progress...' : 'Processing automatically...',
+                    style: const TextStyle(color: Colors.white24, fontSize: 12)),
+                ])),
+              ],
+            ),
+          ),
+        ),
       ],
     ),
+  );
+
+  Widget _fraudInfoRow(String label, String value) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(
+        width: 95,
+        child: Text('$label:',
+          style: const TextStyle(color: Color(0xFFFF8A80), fontSize: 12, fontWeight: FontWeight.w600)),
+      ),
+      Expanded(child: Text(value,
+        style: const TextStyle(color: Colors.white70, fontSize: 12))),
+    ],
   );
 
   // ── Screen 2: Dynamic Premium Calculation ──────────────────
@@ -543,25 +653,56 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
           decoration: BoxDecoration(
             color:        Colors.white.withOpacity(0.06),
             borderRadius: BorderRadius.circular(8)),
-          child: const Text('UPI Payout Screen',
+          child: const Text('Razorpay UPI Payout',
             style: TextStyle(color: Colors.white38,
               fontSize: 11, letterSpacing: 0.8))),
-        const SizedBox(height: 40),
+        const SizedBox(height: 20),
+
+        // Razorpay badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF072654), Color(0xFF0A3D7A)]),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: const Color(0xFF2E86DE).withOpacity(0.4))),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4)),
+              child: const Text('Razorpay',
+                style: TextStyle(color: Color(0xFF072654),
+                  fontSize: 12, fontWeight: FontWeight.w900))),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: gold.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(99)),
+              child: const Text('TEST MODE',
+                style: TextStyle(color: Color(0xFFF5A623),
+                  fontSize: 8, fontWeight: FontWeight.bold,
+                  letterSpacing: 1))),
+          ])),
+        const SizedBox(height: 20),
 
         // Pulsing logo
         Container(
           width: 90, height: 90,
           decoration: BoxDecoration(
-            color:  gold.withOpacity(0.12),
+            color:  const Color(0xFF2E86DE).withOpacity(0.12),
             shape:  BoxShape.circle,
             border: Border.all(
-              color: gold.withOpacity(0.4), width: 2)),
+              color: const Color(0xFF2E86DE).withOpacity(0.4), width: 2)),
           child: const Icon(Icons.account_balance_wallet_rounded,
-            color: gold, size: 44)),
+            color: Color(0xFF2E86DE), size: 44)),
 
         const SizedBox(height: 28),
 
-        const Text('Sending to UPI',
+        const Text('Razorpay processing UPI payout',
           style: TextStyle(color: Colors.white54, fontSize: 15)),
         const SizedBox(height: 8),
 
@@ -583,8 +724,8 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
         const SizedBox(height: 40),
 
         // Steps
-        _payoutStep('Processing...', true,
-          const Color(0xFF4B9FFF)),
+        _payoutStep('Razorpay processing...', true,
+          const Color(0xFF2E86DE)),
         const SizedBox(height: 8),
 
         Row(children: [
@@ -594,9 +735,9 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
         ]),
         const SizedBox(height: 4),
 
-        _payoutStep('Initiating transfer', false, gray),
+        _payoutStep('Initiating UPI transfer', false, gray),
         const SizedBox(height: 8),
-        _payoutStep('Crediting to UPI', false, gray),
+        _payoutStep('Crediting via Razorpay', false, gray),
 
         const Spacer(),
 
@@ -630,7 +771,7 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
   Widget _successScreen() {
     final upi = widget.policy?['upi_id'] ?? 'worker@upi';
 
-    return Padding(
+    return SingleChildScrollView(
       key: const ValueKey('success'),
       padding: const EdgeInsets.all(24),
       child: Column(children: [
@@ -662,15 +803,24 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
 
         const SizedBox(height: 20),
 
-        Text('₹$_totalPayout credited to UPI',
+        Text('₹$_totalPayout credited via Razorpay',
           style: const TextStyle(color: Color(0xFF00C853),
             fontSize: 18, fontWeight: FontWeight.w800)),
 
         const SizedBox(height: 4),
         Text(upi, style: const TextStyle(
           color: Colors.white54, fontSize: 13)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2E86DE).withOpacity(0.15),
+            borderRadius: BorderRadius.circular(99)),
+          child: const Text('Powered by Razorpay',
+            style: TextStyle(color: Color(0xFF2E86DE),
+              fontSize: 11, fontWeight: FontWeight.w700))),
 
-        const SizedBox(height: 32),
+        const SizedBox(height: 24),
 
         _darkCard(child: Column(children: [
           _sumRow('✅ Claim ID', _claimId, const Color(0xFF00C853)),
@@ -683,11 +833,15 @@ class _TriggerAlertFlowState extends State<TriggerAlertFlow>
           _div(),
           _sumRow('Amount', '₹$_totalPayout', gold),
           _div(),
+          _sumRow('Gateway', 'Razorpay (Test Mode)', const Color(0xFF2E86DE)),
+          _div(),
+          _sumRow('Method', 'UPI Instant Payout', Colors.white70),
+          _div(),
           _sumRow('Status', '✅ Credited',
             const Color(0xFF00C853)),
         ])),
 
-        const Spacer(),
+        const SizedBox(height: 32),
 
         // Back to home
         GestureDetector(

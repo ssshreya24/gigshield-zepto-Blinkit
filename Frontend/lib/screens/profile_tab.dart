@@ -69,7 +69,7 @@ class ProfileTab extends StatelessWidget {
     final name     = (policy?['name']?.toString().trim().isNotEmpty == true)
         ? policy!['name'] as String
         : 'Worker';                                   // ← safe name
-    final zone     = policy?['zone']     ?? 'Koramangala';
+    final zone     = policy?['zone']     ?? 'Your Zone';
     final platform = policy?['platform'] ?? 'Zepto';
     final plan     = (policy?['plan_type'] ?? 'standard')
       .toString().toUpperCase();

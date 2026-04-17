@@ -19,17 +19,9 @@ class _DashboardTabState extends State<DashboardTab> {
 
   Map<String, dynamic> stats    = {};
   List<dynamic>        triggers = [];
+  List<dynamic>        zones    = [];
   bool loading = true;
   Timer? _timer;
-
-  final zones = [
-    {'name': 'Koramangala', 'score': 72, 'level': 'HIGH'},
-    {'name': 'HSR Layout',  'score': 65, 'level': 'HIGH'},
-    {'name': 'Marathahalli','score': 55, 'level': 'MED'},
-    {'name': 'Indiranagar', 'score': 45, 'level': 'MED'},
-    {'name': 'Bellandur',   'score': 48, 'level': 'MED'},
-    {'name': 'Whitefield',  'score': 30, 'level': 'LOW'},
-  ];
 
   @override
   void initState() {
@@ -45,8 +37,17 @@ class _DashboardTabState extends State<DashboardTab> {
   Future<void> _load() async {
     final s = await AdminApi.getStats();
     final t = await AdminApi.getTriggers();
+    final rawZones = await AdminApi.getZones();
+    
+    final mappedZones = rawZones.map((x) {
+        final triggers = int.tryParse(x['active_triggers'].toString()) ?? 0;
+        final score = triggers > 10 ? 95 : (triggers > 3 ? 65 : 30);
+        final level = triggers > 10 ? 'HIGH' : (triggers > 3 ? 'MED' : 'LOW');
+        return {'name': x['zone'], 'score': score, 'level': level};
+    }).toList();
+
     if (mounted) setState(() {
-      stats = s; triggers = t; loading = false; });
+      stats = s; triggers = t; zones = mappedZones; loading = false; });
   }
 
   Future<void> _logout() async {

@@ -33,7 +33,15 @@ services:
       DB_NAME: gigshield
       DB_PORT: 5432
       PORT: 3000
-      WEATHER_API_KEY: e5662aa8fdcc219ae6d83e1e588ca6fd
+      WEATHER_API_KEY: your_api_key_here
+      OPENWEATHER_API_KEY: your_api_key_here
+      ADMIN_EMAIL: admin@insurify.com
+      ADMIN_PASSWORD: insurify@2026
+      ADMIN_TOKEN_SECRET: gigshield-jwt-secret-2026
+      ML_SERVICE_URL: http://host.docker.internal:8001
+      RAZORPAY_KEY_ID: rzp_test_gigshield2026
+      RAZORPAY_KEY_SECRET: gigshield_test_secret_2026
+      NODE_ENV: development
     depends_on:
       postgres:
         condition: service_healthy

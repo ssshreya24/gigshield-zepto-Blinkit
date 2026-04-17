@@ -30,10 +30,14 @@ class _ClaimsTabState extends State<ClaimsTab> {
   int get _total => claims.fold(0,
     (s, c) => s + ((c['payout_amount'] ?? 0) as num).toInt());
 
+  int get _fraudCount => claims.where((c) =>
+    c['fraud_flag'] == true || c['status'] == 'fraud_review').length;
+
   Color _sc(String? s) {
-    if (s == 'approved')   return const Color(0xFF00C853);
-    if (s == 'processing') return gold;
-    if (s == 'rejected')   return const Color(0xFFFF5252);
+    if (s == 'approved')    return const Color(0xFF00C853);
+    if (s == 'processing')  return gold;
+    if (s == 'rejected')    return const Color(0xFFFF5252);
+    if (s == 'fraud_review') return const Color(0xFFFF6D00);
     return gray;
   }
 
@@ -125,7 +129,7 @@ class _ClaimsTabState extends State<ClaimsTab> {
         const SizedBox(width: 10),
         _sum('${claims.length}','Total claims', navy),
         const SizedBox(width: 10),
-        _sum('0',               'Fraud flags',  navy),
+        _sum('$_fraudCount',    'Fraud flags',  _fraudCount > 0 ? const Color(0xFFFF5252) : navy),
       ]),
       const SizedBox(height: 20),
 
@@ -163,34 +167,75 @@ class _ClaimsTabState extends State<ClaimsTab> {
   );
 
   Widget _card(Map<String, dynamic> c) {
-    final status = c['status'] as String? ?? 'processing';
-    final type   = c['trigger_type'] as String?;
-    final date   = c['created_at']?.toString().substring(0, 10) ?? '';
-    final sc     = _sc(status);
-    final tc     = _tc(type);
+    final status    = c['status'] as String? ?? 'processing';
+    final type      = c['trigger_type'] as String?;
+    final date      = c['created_at']?.toString().substring(0, 10) ?? '';
+    final sc        = _sc(status);
+    final tc        = _tc(type);
+    final isFraud   = c['fraud_flag'] == true || status == 'fraud_review';
+    final fraudNote = c['fraud_reason'] as String? ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.85),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: bdr),
+        border: Border.all(
+          color: isFraud ? const Color(0xFFFF5252).withOpacity(0.5) : bdr,
+          width: isFraud ? 1.5 : 1),
         boxShadow: [BoxShadow(
-          color: tc.withOpacity(0.08),
+          color: isFraud
+            ? const Color(0xFFFF5252).withOpacity(0.12)
+            : tc.withOpacity(0.08),
           blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: Column(children: [
+        // Fraud warning banner
+        if (isFraud)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFF5252),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(14))),
+            child: Row(children: [
+              const Icon(Icons.gpp_bad_rounded, color: Colors.white, size: 16),
+              const SizedBox(width: 6),
+              const Text('FRAUD FLAGGED',
+                style: TextStyle(color: Colors.white, fontSize: 11,
+                  fontWeight: FontWeight.w900, letterSpacing: 0.8)),
+              const Spacer(),
+              Text(status == 'rejected' ? '🚫 BLOCKED'
+                : status == 'fraud_review' ? '⏳ UNDER REVIEW' : '',
+                style: const TextStyle(color: Colors.white70, fontSize: 10,
+                  fontWeight: FontWeight.w700)),
+            ]),
+          ),
         Padding(
           padding: const EdgeInsets.all(16),
           child: Row(children: [
-            Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(
-                color: tc.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
+            Stack(children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  color: tc.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(_ic(type), color: tc, size: 22),
               ),
-              child: Icon(_ic(type), color: tc, size: 22),
-            ),
+              if (isFraud)
+                Positioned(top: -2, right: -2,
+                  child: Container(
+                    width: 18, height: 18,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF5252),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2)),
+                    child: const Icon(Icons.priority_high_rounded,
+                      color: Colors.white, size: 10),
+                  ),
+                ),
+            ]),
             const SizedBox(width: 12),
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,12 +254,35 @@ class _ClaimsTabState extends State<ClaimsTab> {
                 borderRadius: BorderRadius.circular(99),
                 border: Border.all(color: sc.withOpacity(0.3)),
               ),
-              child: Text(status.toUpperCase(),
+              child: Text(
+                status == 'fraud_review' ? 'FRAUD REVIEW' : status.toUpperCase(),
                 style: TextStyle(color: sc, fontSize: 10,
                   fontWeight: FontWeight.bold)),
             ),
           ]),
         ),
+        // Fraud reason
+        if (isFraud && fraudNote.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF5252).withOpacity(0.06),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFFF5252).withOpacity(0.15))),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.info_outline_rounded,
+                  color: Color(0xFFFF5252), size: 14),
+                const SizedBox(width: 6),
+                Expanded(child: Text(fraudNote,
+                  style: const TextStyle(color: Color(0xFFFF5252),
+                    fontSize: 11, height: 1.3))),
+              ]),
+            ),
+          ),
         Divider(color: bdr, height: 1),
         Padding(
           padding: const EdgeInsets.symmetric(
@@ -224,14 +292,19 @@ class _ClaimsTabState extends State<ClaimsTab> {
             _divWid(),
             _mini('Actual',   '₹${c['actual_income'] ?? 0}',   gray),
             _divWid(),
-            _mini('Payout',   '₹${c['payout_amount'] ?? 0}',   gold),
+            _mini('Payout',   '₹${c['payout_amount'] ?? 0}',
+              isFraud ? const Color(0xFFFF5252) : gold),
             const Spacer(),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              const Text('UPI', style: TextStyle(color: gray, fontSize: 11)),
-              Text(c['payout_status'] ?? 'pending',
+              Text(isFraud ? 'Razorpay' : 'UPI',
+                style: const TextStyle(color: gray, fontSize: 11)),
+              Text(
+                isFraud ? 'HELD' : (c['payout_status'] ?? 'pending'),
                 style: TextStyle(
-                  color: c['payout_status'] == 'completed'
-                    ? const Color(0xFF00C853) : gold,
+                  color: isFraud
+                    ? const Color(0xFFFF5252)
+                    : (c['payout_status'] == 'completed'
+                      ? const Color(0xFF00C853) : gold),
                   fontSize: 11, fontWeight: FontWeight.w700)),
             ]),
           ]),

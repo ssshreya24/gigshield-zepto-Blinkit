@@ -1,0 +1,48 @@
+{
+  "model_type": "XGBoost Classifier",
+  "n_estimators": 100,
+  "max_depth": 4,
+  "training_samples": 480,
+  "test_samples": 120,
+  "accuracy": 0.9167,
+  "cv_accuracy_mean": 0.8633,
+  "cv_accuracy_std": 0.0795,
+  "feature_importance": {
+    "avg_monthly_rain_mm": 0.4803,
+    "flood_events_per_year": 0.1416,
+    "aqi_bad_days_per_month": 0.1709,
+    "dark_store_outages_month": 0.1208,
+    "avg_wind_speed_kmh": 0.0302,
+    "extreme_heat_days_month": 0.0561
+  },
+  "class_distribution": {
+    "LOW": 334,
+    "MEDIUM": 158,
+    "HIGH": 108
+  },
+  "features": [
+    "avg_monthly_rain_mm",
+    "flood_events_per_year",
+    "aqi_bad_days_per_month",
+    "dark_store_outages_month",
+    "avg_wind_speed_kmh",
+    "extreme_heat_days_month"
+  ],
+  "confusion_matrix": [
+    [
+      65,
+      2,
+      0
+    ],
+    [
+      2,
+      27,
+      3
+    ],
+    [
+      0,
+      3,
+      18
+    ]
+  ]
+}

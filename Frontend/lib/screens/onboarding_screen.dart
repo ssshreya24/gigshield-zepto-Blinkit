@@ -5,8 +5,10 @@
 // ✅ All original background, blobs, glass, colors UNCHANGED
 import 'dart:ui';
 import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'home_screen.dart';
@@ -60,38 +62,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   final _cityCtrl = TextEditingController();
   final _zoneCtrl = TextEditingController();
 
-  final Map<String, Map<String, dynamic>> zoneData = {
-    'Koramangala':  {'lat': 12.9352, 'lng': 77.6245, 'city': 'Bengaluru', 'risk': 72},
-    'Indiranagar':  {'lat': 12.9784, 'lng': 77.6408, 'city': 'Bengaluru', 'risk': 45},
-    'Whitefield':   {'lat': 12.9698, 'lng': 77.7500, 'city': 'Bengaluru', 'risk': 30},
-    'HSR Layout':   {'lat': 12.9116, 'lng': 77.6389, 'city': 'Bengaluru', 'risk': 65},
-    'Marathahalli': {'lat': 12.9591, 'lng': 77.6974, 'city': 'Bengaluru', 'risk': 55},
-    'Bellandur':    {'lat': 12.9259, 'lng': 77.6762, 'city': 'Bengaluru', 'risk': 48},
-    'Jayanagar':    {'lat': 12.9308, 'lng': 77.5839, 'city': 'Bengaluru', 'risk': 40},
-    'Malleshwaram': {'lat': 13.0035, 'lng': 77.5705, 'city': 'Bengaluru', 'risk': 44},
-    'Hebbal':       {'lat': 13.0355, 'lng': 77.5913, 'city': 'Bengaluru', 'risk': 38},
-    'Andheri':      {'lat': 19.1136, 'lng': 72.8697, 'city': 'Mumbai',    'risk': 60},
-    'Bandra':       {'lat': 19.0544, 'lng': 72.8402, 'city': 'Mumbai',    'risk': 48},
-    'Powai':        {'lat': 19.1176, 'lng': 72.9060, 'city': 'Mumbai',    'risk': 35},
-    'Gachibowli':   {'lat': 17.4401, 'lng': 78.3489, 'city': 'Hyderabad', 'risk': 40},
-    'Hitech City':  {'lat': 17.4474, 'lng': 78.3762, 'city': 'Hyderabad', 'risk': 35},
-    'Koregaon Park':{'lat': 18.5362, 'lng': 73.8938, 'city': 'Pune',      'risk': 36},
-    'Baner':        {'lat': 18.5590, 'lng': 73.7868, 'city': 'Pune',      'risk': 42},
-    'Anna Nagar':   {'lat': 13.0850, 'lng': 80.2101, 'city': 'Chennai',   'risk': 38},
-    'Velachery':    {'lat': 12.9815, 'lng': 80.2180, 'city': 'Chennai',   'risk': 55},
-    'Lajpat Nagar': {'lat': 28.5700, 'lng': 77.2373, 'city': 'Delhi',     'risk': 50},
-    'Dwarka':       {'lat': 28.5921, 'lng': 77.0460, 'city': 'Delhi',     'risk': 42},
-  };
-
-  final Map<String, List<String>> cityZones = {
-    'Bengaluru': ['Koramangala','Indiranagar','Whitefield','HSR Layout',
-      'Marathahalli','Bellandur','Jayanagar','Malleshwaram','Hebbal'],
-    'Mumbai':    ['Andheri','Bandra','Powai'],
-    'Hyderabad': ['Gachibowli','Hitech City'],
-    'Pune':      ['Koregaon Park','Baner'],
-    'Chennai':   ['Anna Nagar','Velachery'],
-    'Delhi':     ['Lajpat Nagar','Dwarka'],
-  };
+  // Zone data loaded dynamically from backend API
+  Map<String, Map<String, dynamic>> zoneData = {};
+  Map<String, List<String>> cityZones = {};
+  bool zonesLoading = true;
 
   final List<Map<String, dynamic>> plans = [
     {
@@ -175,6 +149,60 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       ..repeat(reverse: true);
     _pulse = Tween(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+    _loadZonesFromApi();
+  }
+
+  // Load zones dynamically from backend API
+  Future<void> _loadZonesFromApi() async {
+    try {
+      final zones = await ApiService.getZones();
+      final Map<String, Map<String, dynamic>> zd = {};
+      final Map<String, List<String>> cz = {};
+
+      for (final z in zones) {
+        final name = z['name'] as String? ?? '';
+        final lat  = (z['lat'] as num?)?.toDouble() ?? 0;
+        final lon  = (z['lon'] as num?)?.toDouble() ?? 0;
+        if (name.isEmpty) continue;
+
+        // Determine city from lat/lng ranges
+        String city = _cityFromCoords(lat, lon);
+
+        zd[name] = {'lat': lat, 'lng': lon, 'city': city, 'risk': 50};
+        cz.putIfAbsent(city, () => []);
+        if (!cz[city]!.contains(name)) cz[city]!.add(name);
+
+        // Fetch real risk score async
+        ApiService.getZoneRisk(name).then((risk) {
+          if (mounted && risk.isNotEmpty) {
+            setState(() {
+              zoneData[name]?['risk'] = risk['riskScore'] ?? 50;
+            });
+          }
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          zoneData = zd;
+          cityZones = cz;
+          zonesLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => zonesLoading = false);
+    }
+  }
+
+  // Determine city from coordinates
+  String _cityFromCoords(double lat, double lon) {
+    if (lat > 12.5 && lat < 13.5 && lon > 77.0 && lon < 78.0) return 'Bengaluru';
+    if (lat > 18.5 && lat < 19.5 && lon > 72.5 && lon < 73.5) return 'Mumbai';
+    if (lat > 17.0 && lat < 18.0 && lon > 78.0 && lon < 79.0) return 'Hyderabad';
+    if (lat > 18.0 && lat < 19.0 && lon > 73.5 && lon < 74.5) return 'Pune';
+    if (lat > 12.5 && lat < 13.5 && lon > 80.0 && lon < 81.0) return 'Chennai';
+    if (lat > 28.0 && lat < 29.0 && lon > 76.5 && lon < 77.5) return 'Delhi';
+    return 'Other';
   }
 
   @override
@@ -210,6 +238,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         desiredAccuracy: LocationAccuracy.high);
       detectedLat = pos.latitude;
       detectedLng = pos.longitude;
+
+      // Step 1: Check if near an existing zone (<10km)
       String nearestZone = '';
       double minDist     = double.infinity;
       zoneData.forEach((z, data) {
@@ -217,6 +247,68 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           data['lat'] as double, data['lng'] as double);
         if (d < minDist) { minDist = d; nearestZone = z; }
       });
+
+      // Step 2: If close to existing zone, use it
+      if (nearestZone.isNotEmpty && minDist < 10.0) {
+        final data = zoneData[nearestZone]!;
+        setState(() {
+          zone             = nearestZone;
+          selectedCity     = data['city'] as String;
+          detectedAddress  = '$nearestZone, ${data['city']}';
+          locationDetected = true;
+          locLoading       = false;
+          _cityCtrl.text   = data['city'] as String;
+        });
+        recalc();
+        _showLocationSuccess(nearestZone, data['city'] as String);
+        return;
+      }
+
+      // Step 3: Reverse geocode to get real area name
+      try {
+        final url = Uri.parse(
+          'https://nominatim.openstreetmap.org/reverse?lat=${pos.latitude}&lon=${pos.longitude}&format=json&addressdetails=1');
+        final resp = await http.get(url, headers: {'User-Agent': 'Insurify/1.0'});
+        if (resp.statusCode == 200) {
+          final data = json.decode(resp.body);
+          final addr = data['address'] ?? {};
+          // Try suburb > neighbourhood > city_district > town > city
+          final detectedArea = addr['suburb'] ??
+              addr['neighbourhood'] ??
+              addr['city_district'] ??
+              addr['town'] ??
+              addr['city'] ??
+              addr['state_district'] ?? 'My Zone';
+          final detectedCity = addr['city'] ??
+              addr['town'] ??
+              addr['state_district'] ??
+              addr['state'] ?? 'India';
+
+          // Add as new zone locally
+          zoneData[detectedArea] = {
+            'lat': pos.latitude, 'lng': pos.longitude,
+            'city': detectedCity, 'risk': 50
+          };
+          cityZones.putIfAbsent(detectedCity, () => []);
+          if (!cityZones[detectedCity]!.contains(detectedArea)) {
+            cityZones[detectedCity]!.add(detectedArea);
+          }
+
+          setState(() {
+            zone             = detectedArea;
+            selectedCity     = detectedCity;
+            detectedAddress  = '$detectedArea, $detectedCity';
+            locationDetected = true;
+            locLoading       = false;
+            _cityCtrl.text   = detectedCity;
+          });
+          recalc();
+          _showLocationSuccess(detectedArea, detectedCity);
+          return;
+        }
+      } catch (_) {}
+
+      // Step 4: Fallback — use nearest existing zone
       if (nearestZone.isNotEmpty) {
         final data = zoneData[nearestZone]!;
         setState(() {

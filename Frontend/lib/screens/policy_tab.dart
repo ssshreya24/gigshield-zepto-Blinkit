@@ -5,8 +5,9 @@ import '../services/certificate_generator.dart';
 import 'payout_animation_screen.dart';
 import 'admin_screen.dart';
 import 'trigger_flow_screen.dart';
+import 'trigger_alert_flow.dart';
 
-class PolicyTab extends StatelessWidget {
+class PolicyTab extends StatefulWidget {
   final int workerId;
   final Map<String, dynamic>? policy;
   final bool loading;
@@ -20,12 +21,156 @@ class PolicyTab extends StatelessWidget {
     required this.onRefresh,
   });
 
+  @override
+  State<PolicyTab> createState() => _PolicyTabState();
+}
+
+class _PolicyTabState extends State<PolicyTab> {
+  int workerId   = 0;
+  Map<String, dynamic>? policy;
+  bool loading   = false;
+  VoidCallback get onRefresh => widget.onRefresh;
+
+  int fraudCount = 0;
+
   static const bg    = Color(0xFFE8EDFF);
   static const navy  = Color(0xFF1A2E6E);
   static const navy2 = Color(0xFF22387E);
   static const gold  = Color(0xFFF5A623);
   static const gray  = Color(0xFF7A8BB0);
   static const bdr   = Color(0xFFCDD8F6);
+
+  @override
+  void initState() {
+    super.initState();
+    workerId = widget.workerId;
+    policy   = widget.policy;
+    loading  = widget.loading;
+    _fetchFraudCount();
+  }
+
+  @override
+  void didUpdateWidget(covariant PolicyTab old) {
+    super.didUpdateWidget(old);
+    workerId = widget.workerId;
+    policy   = widget.policy;
+    loading  = widget.loading;
+  }
+
+  Future<void> _fetchFraudCount() async {
+    try {
+      final claims = await ApiService.getClaims(workerId);
+      final count = claims.where((c) =>
+        c['fraud_flag'] == true || c['status'] == 'fraud_review').length;
+      if (mounted) setState(() => fraudCount = count);
+    } catch (_) {}
+  }
+
+  // ── Trigger Fraud Test ─────────────────────────────────────
+  Future<void> _triggerFraudTest(BuildContext ctx) async {
+    final zone = policy?['zone'] ?? 'Your Zone';
+    
+    // Show loading dialog
+    showDialog(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16))),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFFF6D00), size: 48),
+            SizedBox(height: 16),
+            Text('Simulating Fraud Claim...',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF1A2E6E), fontSize: 16, fontWeight: FontWeight.w700)),
+            SizedBox(height: 8),
+            Text('Running 4-layer fraud detection pipeline',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF7A8BB0), fontSize: 13)),
+            SizedBox(height: 16),
+            CircularProgressIndicator(color: Color(0xFFFF6D00)),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      await ApiService.fireDemoTrigger(
+        zone:       zone,
+        type:       'heavy_rain',
+        severity:   'T2',
+        value:      85,
+        forceFraud: true,
+      );
+
+      if (!ctx.mounted) return;
+      Navigator.of(ctx, rootNavigator: true).pop(); // close loading
+
+      // Update fraud count
+      await _fetchFraudCount();
+
+      // Show success dialog with fraud details
+      if (!ctx.mounted) return;
+      showDialog(
+        context: ctx,
+        builder: (_) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16))),
+          title: const Row(children: [
+            Icon(Icons.gpp_bad_rounded, color: Color(0xFFFF5252), size: 28),
+            SizedBox(width: 8),
+            Text('Fraud Detected!',
+              style: TextStyle(color: Color(0xFFFF5252), fontSize: 18, fontWeight: FontWeight.w800)),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF5252).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFF5252).withOpacity(0.3))),
+                child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('⚠ Fraudulent Claim Created',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  SizedBox(height: 4),
+                  Text('Status: FRAUD REVIEW',
+                    style: TextStyle(color: Color(0xFFFF6D00), fontWeight: FontWeight.w600, fontSize: 13)),
+                  SizedBox(height: 4),
+                  Text('Reason: Manual trigger — Suspicious activity testing',
+                    style: TextStyle(color: Color(0xFF7A8BB0), fontSize: 12)),
+                ]),
+              ),
+              const SizedBox(height: 12),
+              const Text('💳 Payout: HELD by Razorpay',
+                style: TextStyle(color: Color(0xFFFF5252), fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(height: 4),
+              const Text('Go to Claims tab to see the flagged claim.',
+                style: TextStyle(color: Color(0xFF7A8BB0), fontSize: 12)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK', style: TextStyle(color: Color(0xFF1A2E6E), fontWeight: FontWeight.w700))),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (ctx.mounted) {
+        Navigator.of(ctx, rootNavigator: true).pop();
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(content: Text('Fraud test failed: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
 
   final List<Map<String, dynamic>> coverage = const [
     {'icon': Icons.water_drop_rounded,
@@ -66,7 +211,7 @@ class PolicyTab extends StatelessWidget {
       await CertificateGenerator.generate(
         workerId:      workerId,
         workerName:    policy?['name']            ?? 'Worker',
-        zone:          policy?['zone']            ?? 'Koramangala',
+        zone:          policy?['zone']            ?? 'Your Zone',
         platform:      policy?['platform']        ?? 'Zepto',
         planType:      policy?['plan_type']       ?? 'standard',
         weeklyPremium: policy?['weekly_premium']  ?? 74,
@@ -172,7 +317,7 @@ class PolicyTab extends StatelessWidget {
   );
 
   void _showTriggerDemo(BuildContext context) {
-    final zone    = policy?['zone']     ?? 'Koramangala';
+    final zone    = policy?['zone']     ?? 'Your Zone';
     final city    = _cityFromZone(zone);
     final upiId   = policy?['upi_id']  ?? '${(policy?['name'] ?? 'worker').toLowerCase().replaceAll(' ', '')}@okicici';
     final maxP    = (policy?['max_payout']       ?? 900) as num;
@@ -183,6 +328,7 @@ class PolicyTab extends StatelessWidget {
       {'label': 'Flood Alert (T3)',   'type': 'flood_alert',  'sev': 'T3', 'color': Color(0xFFFF5252)},
       {'label': 'Extreme Heat (T1)',  'type': 'extreme_heat', 'sev': 'T1', 'color': Color(0xFFF5A623)},
       {'label': 'Severe AQI (T2)',    'type': 'severe_aqi',   'sev': 'T2', 'color': Color(0xFF9C6FFF)},
+      {'label': 'Fraud Test (Testing)','type': 'heavy_rain',  'sev': 'T2', 'color': Color(0xFFFF6D00), 'forceFraud': true},
     ];
 
     showModalBottomSheet(
@@ -214,10 +360,11 @@ class PolicyTab extends StatelessWidget {
 
                 // Fire on backend
                 await ApiService.fireDemoTrigger(
-                  zone:     zone,
-                  type:     t['type'] as String,
-                  severity: t['sev']  as String,
-                  value:    85,
+                  zone:       zone,
+                  type:       t['type'] as String,
+                  severity:   t['sev']  as String,
+                  value:      85,
+                  forceFraud: t['forceFraud'] == true,
                 );
 
                 // Open 5-screen TriggerFlowScreen
@@ -269,19 +416,10 @@ class PolicyTab extends StatelessWidget {
     );
   }
 
-  // Returns city name from known zones
+  // City resolution now happens dynamically on the server via geocoding
   String _cityFromZone(String zone) {
-    const zoneCity = {
-      'Koramangala':'Bengaluru','Indiranagar':'Bengaluru','Whitefield':'Bengaluru',
-      'HSR Layout':'Bengaluru','Marathahalli':'Bengaluru','Bellandur':'Bengaluru',
-      'Jayanagar':'Bengaluru','Rajajinagar':'Bengaluru','Malleshwaram':'Bengaluru','Hebbal':'Bengaluru',
-      'Andheri':'Mumbai','Bandra':'Mumbai','Powai':'Mumbai','Thane':'Mumbai',
-      'Kurla':'Mumbai','Dadar':'Mumbai','Borivali':'Mumbai','Mulund':'Mumbai',
-      'Gachibowli':'Hyderabad','Hitech City':'Hyderabad','Banjara Hills':'Hyderabad',
-      'Anna Nagar':'Chennai','Velachery':'Chennai','Adyar':'Chennai',
-      'Koregaon Park':'Pune','Baner':'Pune','Wakad':'Pune','Kothrud':'Pune',
-    };
-    return zoneCity[zone] ?? zone;
+    // Zone name is displayed directly — city grouping is server-side
+    return zone;
   }
 
   Widget _body(BuildContext context) => SingleChildScrollView(
@@ -316,9 +454,58 @@ class PolicyTab extends StatelessWidget {
           _quickStat(Icons.bolt_rounded, '5', 'Triggers', gold),
           const SizedBox(width: 10),
           _quickStat(Icons.verified_rounded,
-            '0', 'Fraud', const Color(0xFF00C853)),
+            '$fraudCount', 'Fraud',
+            fraudCount > 0 ? const Color(0xFFFF5252) : const Color(0xFF00C853)),
         ]),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
+
+        // ── TRIGGER FRAUD TEST BUTTON ──────────────────────
+        GestureDetector(
+          onTap: () => _triggerFraudTest(context),
+          child: Container(
+            width:   double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [
+                const Color(0xFFFF6D00).withOpacity(0.9),
+                const Color(0xFFFF9800),
+              ]),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(
+                color: const Color(0xFFFF6D00).withOpacity(0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 6))],
+            ),
+            child: Row(children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.gpp_bad_rounded,
+                  color: Colors.white, size: 26),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('🚨 Trigger Fraud Test',
+                    style: TextStyle(
+                      color:      Colors.white,
+                      fontSize:   15,
+                      fontWeight: FontWeight.w800)),
+                  Text('Simulate a fraudulent claim for testing',
+                    style: TextStyle(
+                      color: Colors.white70, fontSize: 12)),
+                ],
+              )),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                color: Colors.white, size: 16),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 16),
 
         // Demo trigger banner
         GestureDetector(
@@ -352,7 +539,7 @@ class PolicyTab extends StatelessWidget {
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${policy?['zone'] ?? 'Koramangala'} : ${coverage.first['name']} (${coverage.first['tier']})',
+                  Text('${policy?['zone'] ?? 'Your Zone'} : ${coverage.first['name']} (${coverage.first['tier']})',
                     style: const TextStyle(
                       color:      Colors.white,
                       fontSize:   15,
@@ -400,7 +587,7 @@ class PolicyTab extends StatelessWidget {
           _div(),
           _detRow('Platform', policy?['platform'] ?? 'Zepto'),
           _div(),
-          _detRow('Zone', policy?['zone'] ?? 'Koramangala'),
+          _detRow('Zone', policy?['zone'] ?? 'Your Zone'),
         ])),
 
         const SizedBox(height: 12),
@@ -525,7 +712,7 @@ class PolicyTab extends StatelessWidget {
                 fontSize:   18,
                 fontWeight: FontWeight.w800)),
             Text(
-              '${policy?['platform'] ?? 'Zepto'} · ${policy?['zone'] ?? 'Koramangala'}',
+              '${policy?['platform'] ?? 'Zepto'} · ${policy?['zone'] ?? 'Your Zone'}',
               style: TextStyle(
                 color:    Colors.white.withOpacity(0.55),
                 fontSize: 13)),

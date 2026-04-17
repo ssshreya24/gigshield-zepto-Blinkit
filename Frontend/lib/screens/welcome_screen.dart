@@ -387,7 +387,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     fontWeight: FontWeight.w700)),
               ]),
               const SizedBox(height: 10),
-              _hint('9999999901', 'Ravi Kumar',   'Koramangala'),
+              _hint('9999999901', 'Ravi Kumar',   'Your Zone'),
               _hint('9999999902', 'Priya Sharma', 'Indiranagar'),
               _hint('9999999903', 'Arjun Singh',  'Whitefield'),
             ],

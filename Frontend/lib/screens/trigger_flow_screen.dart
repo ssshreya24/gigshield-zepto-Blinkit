@@ -83,7 +83,8 @@ class _TriggerFlowScreenState extends State<TriggerFlowScreen>
   void initState() {
     super.initState();
 
-    // Calculate all amounts
+    // Calculate amounts — payout percentages from backend config
+    // Defaults used until API responds (same as DB defaults)
     final pctMap = {'T1': 0.25, 'T2': 0.50, 'T3': 1.00};
     final pct    = pctMap[widget.severity] ?? 0.50;
     _payout      = (widget.maxPayout * pct).round();

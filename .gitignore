@@ -1,0 +1,30 @@
+# Environment files (secrets)
+Backend/.env
+.env
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+*.pkl
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter
+Frontend/.dart_tool/
+Frontend/build/
+admin_app/.dart_tool/
+admin_app/build/
+.flutter-plugins
+.flutter-plugins-dependencies

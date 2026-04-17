@@ -9,6 +9,10 @@ CREATE TABLE IF NOT EXISTS workers (
   platform  VARCHAR(50)   NOT NULL,
   avg_daily_income INTEGER NOT NULL,
   tenure_weeks     INTEGER DEFAULT 1,
+  disruption_login_ratio FLOAT DEFAULT 0,
+  last_lat         DOUBLE PRECISION,
+  last_lon         DOUBLE PRECISION,
+  last_gps_time    TIMESTAMP,
   created_at       TIMESTAMP DEFAULT NOW()
 );
 
@@ -50,7 +54,7 @@ CREATE TABLE IF NOT EXISTS claims (
   status          VARCHAR(20) DEFAULT 'processing'
                   CHECK (status IN ('processing','approved','rejected','paid')),
   fraud_flag      BOOLEAN DEFAULT FALSE,
-  fraud_reason    VARCHAR(200),
+  fraud_reason    VARCHAR(500),
   created_at      TIMESTAMP DEFAULT NOW()
 );
 
@@ -60,11 +64,21 @@ CREATE TABLE IF NOT EXISTS payouts (
   worker_id      INTEGER REFERENCES workers(id),
   amount         INTEGER NOT NULL,
   method         VARCHAR(20) DEFAULT 'UPI',
-  payment_method VARCHAR(20) DEFAULT 'UPI',
+  payment_method VARCHAR(30) DEFAULT 'UPI',
+  payment_ref    VARCHAR(100),
   status         VARCHAR(20) DEFAULT 'pending'
                  CHECK (status IN ('pending','completed','failed')),
   processed_at   TIMESTAMP,
   created_at     TIMESTAMP DEFAULT NOW()
+);
+
+-- Dynamic zones table — auto-populated from worker registrations
+CREATE TABLE IF NOT EXISTS zones (
+  id         SERIAL PRIMARY KEY,
+  name       VARCHAR(100) UNIQUE NOT NULL,
+  lat        DOUBLE PRECISION,
+  lon        DOUBLE PRECISION,
+  created_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Indexes for fast queries
@@ -73,8 +87,50 @@ CREATE INDEX IF NOT EXISTS idx_policies_worker  ON policies(worker_id);
 CREATE INDEX IF NOT EXISTS idx_claims_worker    ON claims(worker_id);
 CREATE INDEX IF NOT EXISTS idx_claims_trigger   ON claims(trigger_id);
 CREATE INDEX IF NOT EXISTS idx_trigger_zone     ON trigger_events(zone);
+CREATE INDEX IF NOT EXISTS idx_zones_name       ON zones(name);
 
--- Seed mock zone data for testing
+-- App config table — all business thresholds (replaces hardcoded values)
+CREATE TABLE IF NOT EXISTS app_config (
+  key        VARCHAR(100) PRIMARY KEY,
+  value      VARCHAR(500) NOT NULL,
+  category   VARCHAR(50)  DEFAULT 'general',
+  label      VARCHAR(200),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Seed config values (trigger thresholds, payout %, fraud limits, etc.)
+INSERT INTO app_config (key, value, category, label) VALUES
+  -- Trigger thresholds
+  ('rain_threshold_mm',        '10',    'triggers', 'Heavy rain threshold (mm/hr)'),
+  ('flood_threshold_mm',       '50',    'triggers', 'Flood alert threshold (mm/hr)'),
+  ('heat_threshold_c',         '40',    'triggers', 'Extreme heat threshold (°C)'),
+  ('aqi_threshold',            '200',   'triggers', 'Severe AQI threshold'),
+  ('wind_threshold_kmh',       '60',    'triggers', 'Storm wind threshold (km/h)'),
+  ('rain_trigger_t3_mm',       '50',    'triggers', 'Rain T3 severity threshold (mm)'),
+  ('heat_trigger_t2_c',        '45',    'triggers', 'Heat T2 severity threshold (°C)'),
+  ('aqi_trigger_t3',           '300',   'triggers', 'AQI T3 severity threshold'),
+  ('wind_trigger_t3_kmh',      '90',    'triggers', 'Wind T3 severity threshold (km/h)'),
+  ('weather_rain_threshold',   '7.5',   'triggers', 'Weather check rain threshold (mm)'),
+  ('weather_flood_code_min',   '900',   'triggers', 'OWM flood weather code min'),
+  ('weather_flood_code_max',   '910',   'triggers', 'OWM flood weather code max'),
+  -- Payout %
+  ('payout_t1_pct',            '0.25',  'payouts',  'T1 payout percentage'),
+  ('payout_t2_pct',            '0.50',  'payouts',  'T2 payout percentage'),
+  ('payout_t3_pct',            '1.00',  'payouts',  'T3 payout percentage'),
+  -- Fraud
+  ('fraud_claims_per_week',    '3',     'fraud',    'Max claims per week before fraud flag'),
+  ('fraud_login_ratio',        '0.8',   'fraud',    'Suspicious login ratio threshold'),
+  ('income_loss_expected_pct', '0.75',  'fraud',    'Expected income loss percentage'),
+  ('income_loss_actual_pct',   '0.10',  'fraud',    'Actual income during disruption percentage'),
+  -- ML
+  ('ml_service_url',           'http://localhost:8001', 'ml', 'ML prediction service URL'),
+  ('risk_multiplier_fallback', '1.2',   'ml',       'Fallback risk multiplier when ML is down'),
+  -- Cron
+  ('cron_interval_minutes',    '30',    'cron',     'Weather check interval (minutes)'),
+  ('trigger_dedup_hours',      '2',     'cron',     'Trigger deduplication window (hours)')
+ON CONFLICT (key) DO NOTHING;
+
+-- Seed test workers
 INSERT INTO workers (name, phone, zone, platform, avg_daily_income) VALUES
   ('Ravi Kumar',  '9999999901', 'Koramangala', 'Zepto',   800),
   ('Priya Sharma','9999999902', 'Indiranagar',  'Blinkit', 950),
@@ -87,8 +143,12 @@ INSERT INTO policies (worker_id, plan_type, weekly_premium, max_payout, start_da
   (3, 'basic',    52, 500,  CURRENT_DATE, CURRENT_DATE + 7)
 ON CONFLICT DO NOTHING;
 
--- PLAN TYPES TABLE (NEW)
+-- Auto-seed zones from workers (dynamic — no hardcoded zone list)
+INSERT INTO zones (name)
+  SELECT DISTINCT zone FROM workers WHERE zone IS NOT NULL
+ON CONFLICT (name) DO NOTHING;
 
+-- PLAN TYPES TABLE
 CREATE TABLE IF NOT EXISTS plan_types (
   id             SERIAL PRIMARY KEY,
   name           VARCHAR(50) NOT NULL,
@@ -99,8 +159,6 @@ CREATE TABLE IF NOT EXISTS plan_types (
   is_active      BOOLEAN DEFAULT TRUE,
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
-
--- DEFAULT DATA
 
 INSERT INTO plan_types (name, plan_key, weekly_premium, max_payout, triggers_json)
 VALUES

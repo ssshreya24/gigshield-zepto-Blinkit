@@ -19,26 +19,12 @@ class _AdminScreenState extends State<AdminScreen>
 
   Map<String, dynamic> stats  = {};
   List<dynamic>        claims = [];
+  List<Map<String, dynamic>> zoneRisks = [];
+  List<Map<String, dynamic>> activeTriggers = [];
   bool loading = true;
 
   late AnimationController _fadeCtrl;
   late Animation<double>   _fadeAnim;
-
-  final List<Map<String, dynamic>> zoneRisks = [
-    {'name': 'Koramangala', 'score': 72, 'level': 'HIGH'},
-    {'name': 'HSR Layout',  'score': 65, 'level': 'HIGH'},
-    {'name': 'Marathahalli','score': 55, 'level': 'MED'},
-    {'name': 'Indiranagar', 'score': 45, 'level': 'MED'},
-    {'name': 'Whitefield',  'score': 30, 'level': 'LOW'},
-    {'name': 'Bellandur',   'score': 48, 'level': 'MED'},
-  ];
-
-  final List<Map<String, dynamic>> activeTriggers = [
-    {'type': 'Heavy Rain', 'zone': 'Koramangala',
-      'tier': 'T2', 'time': '12:34 PM', 'color': Color(0xFF4B9FFF)},
-    {'type': 'Severe AQI', 'zone': 'HSR Layout',
-      'tier': 'T2', 'time': '11:20 AM', 'color': Color(0xFF9C6FFF)},
-  ];
 
   @override
   void initState() {
@@ -57,7 +43,60 @@ class _AdminScreenState extends State<AdminScreen>
   Future<void> _load() async {
     final s = await ApiService.getAdminStats();
     final c = await ApiService.getAdminClaims();
-    setState(() { stats = s; claims = c; loading = false; });
+    // Load zone risks and triggers dynamically from API
+    final zr = await ApiService.getAdminZoneRisks();
+    final tr = await ApiService.getAdminTriggers();
+
+    // Convert triggers to display format
+    final List<Map<String, dynamic>> displayTriggers = tr.take(5).map((t) {
+      final type = t['trigger_type'] as String? ?? 'unknown';
+      return {
+        'type': _triggerLabel(type),
+        'zone': t['zone'] ?? '-',
+        'tier': t['severity'] ?? 'T2',
+        'time': _formatTime(t['created_at']),
+        'color': _triggerColor(type),
+      };
+    }).toList();
+
+    setState(() {
+      stats = s;
+      claims = c;
+      zoneRisks = zr;
+      activeTriggers = displayTriggers;
+      loading = false;
+    });
+  }
+
+  String _triggerLabel(String type) {
+    switch (type) {
+      case 'heavy_rain':   return 'Heavy Rain';
+      case 'flood_alert':  return 'Flood Alert';
+      case 'extreme_heat': return 'Extreme Heat';
+      case 'severe_aqi':   return 'Severe AQI';
+      case 'storm':        return 'Storm';
+      default:             return type.replaceAll('_', ' ');
+    }
+  }
+
+  Color _triggerColor(String type) {
+    switch (type) {
+      case 'heavy_rain':   return const Color(0xFF4B9FFF);
+      case 'flood_alert':  return const Color(0xFFFF5252);
+      case 'extreme_heat': return const Color(0xFFF5A623);
+      case 'severe_aqi':   return const Color(0xFF9C6FFF);
+      default:             return const Color(0xFF4B9FFF);
+    }
+  }
+
+  String _formatTime(dynamic ts) {
+    if (ts == null) return '-';
+    try {
+      final dt = DateTime.parse(ts.toString());
+      final h = dt.hour > 12 ? dt.hour - 12 : dt.hour;
+      final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+      return '${h == 0 ? 12 : h}:${dt.minute.toString().padLeft(2, '0')} $ampm';
+    } catch (_) { return '-'; }
   }
 
   Color _rc(String l) {

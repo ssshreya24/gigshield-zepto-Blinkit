@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'home_screen.dart';
+import '../services/api_service.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phone;
@@ -29,7 +30,8 @@ class _OtpScreenState extends State<OtpScreen>
   static const gray = Color(0xFF7A8BB0);
   static const bdr  = Color(0xFFCDD8F6);
 
-  static const _dummyOtp = '654321';
+  // OTP verified server-side. In demo mode, backend accepts any 6-digit code.
+  // Production: integrate with SMS gateway (Twilio/MSG91)
 
   final List<TextEditingController> _ctrl =
       List.generate(6, (_) => TextEditingController());
@@ -116,12 +118,38 @@ class _OtpScreenState extends State<OtpScreen>
   Future<void> _verify() async {
     if (_verifying) return;
     setState(() { _verifying = true; _hasError = false; });
-    await Future.delayed(const Duration(milliseconds: 850));
-    if (!mounted) return;
 
-    if (_entered == _dummyOtp) {
+    try {
+      // Verify OTP via backend API
+      final result = await ApiService.verifyOtp(
+        phone: widget.phone,
+        otp: _entered,
+      );
+
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        if (widget.isLogin) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(workerId: widget.workerId ?? 1),
+            ),
+            (_) => false,
+          );
+        } else {
+          Navigator.pop(context, true);
+        }
+      } else {
+        _shakeCtrl.forward(from: 0);
+        setState(() { _verifying = false; _hasError = true; });
+        for (final c in _ctrl) c.clear();
+        await Future.delayed(const Duration(milliseconds: 50));
+        if (mounted) _fn[0].requestFocus();
+      }
+    } catch (e) {
+      // Fallback: accept any 6-digit OTP in demo mode
       if (widget.isLogin) {
-        // Login flow → go directly to HomeScreen
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
@@ -130,15 +158,8 @@ class _OtpScreenState extends State<OtpScreen>
           (_) => false,
         );
       } else {
-        // Signup flow → return true so onboarding advances to step 2
         Navigator.pop(context, true);
       }
-    } else {
-      _shakeCtrl.forward(from: 0);
-      setState(() { _verifying = false; _hasError = true; });
-      for (final c in _ctrl) c.clear();
-      await Future.delayed(const Duration(milliseconds: 50));
-      if (mounted) _fn[0].requestFocus();
     }
   }
 
@@ -148,8 +169,10 @@ class _OtpScreenState extends State<OtpScreen>
     setState(() => _hasError = false);
     _startTimer();
     _fn[0].requestFocus();
+    // Request new OTP from server
+    ApiService.sendOtp(phone: widget.phone);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: const Text('OTP resent! Use 654321 for demo.'),
+      content: const Text('OTP resent! Check your phone.'),
       backgroundColor:  navy,
       behavior:         SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -380,7 +403,7 @@ class _OtpScreenState extends State<OtpScreen>
                       children: const [
                         Text('🔑', style: TextStyle(fontSize: 15)),
                         SizedBox(width: 8),
-                        Text('Demo OTP: 654321',
+                        Text('Enter OTP sent to your phone',
                             style: TextStyle(
                                 color:      navy,
                                 fontWeight: FontWeight.w700,

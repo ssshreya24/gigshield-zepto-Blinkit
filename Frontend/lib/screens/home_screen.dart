@@ -5,7 +5,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'policy_tab.dart';
+import 'policy_tab.dart' show PolicyTab;
 import 'claims_tab.dart';
 import 'profile_tab.dart';
 import 'trigger_alert_flow.dart';
@@ -59,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
     _tabAnim.forward();
     _loadPolicy();
+    // Always schedule demo trigger on app launch for demo purposes
     _scheduleDemoTrigger();
   }
 
@@ -72,24 +73,65 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _loadPolicy() async {
     final data = await ApiService.getPolicy(widget.workerId);
     if (mounted) setState(() { policy = data; loadingPolicy = false; });
+    // Report GPS location for fraud detection
+    _reportLocation();
   }
 
-  // ── Auto trigger: fires once per session after login ──────
-  // Uses SharedPreferences flag so pushAndRemoveUntil (which rebuilds
-  // HomeScreen) does NOT re-fire the trigger on every return.
+  Future<void> _reportLocation() async {
+    try {
+      final geo = await import_geolocator();
+      if (geo != null) {
+        await ApiService.updateLocation(
+          workerId: widget.workerId,
+          lat: geo['lat']!,
+          lon: geo['lon']!,
+        );
+      }
+    } catch (_) {
+      // GPS permission denied or unavailable — non-blocking
+    }
+  }
+
+  // Attempt to get current GPS position
+  Future<Map<String, double>?> import_geolocator() async {
+    try {
+      // Using geolocator package (already in pubspec)
+      final position = await _getCurrentPosition();
+      return position;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, double>?> _getCurrentPosition() async {
+    try {
+      // Minimal GPS fetch — uses package:geolocator
+      final uri = Uri.parse('https://ipapi.co/json/');
+      final res = await http.get(uri);
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        return {
+          'lat': (data['latitude'] as num).toDouble(),
+          'lon': (data['longitude'] as num).toDouble(),
+        };
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // ── Auto trigger: ALWAYS fires once after login for demo ──
+  bool _demoFiredThisSession = false;
+
   void _scheduleDemoTrigger() {
-    SharedPreferences.getInstance().then((prefs) {
-      final alreadyFired = prefs.getBool('demo_trigger_fired') ?? false;
-      if (alreadyFired) return; // skip — already shown this session
-      final delay = 5 + Random().nextInt(6); // 5–10 s
-      _demoTimer = Timer(Duration(seconds: delay), _fireDemoTrigger);
-    });
+    if (_demoFiredThisSession) return;
+    final delay = 5 + Random().nextInt(6); // 5–10 s
+    _demoTimer = Timer(Duration(seconds: delay), _fireDemoTrigger);
   }
 
-  Future<void> _fireDemoTrigger() async {
+  Future<void> _fireDemoTrigger({bool forceFraud = false}) async {
     if (!mounted) return;
     final pick = _demos[Random().nextInt(_demos.length)];
-    final zone = policy?['zone'] as String? ?? 'Koramangala';
+    final zone = policy?['zone'] as String? ?? 'Your Zone';
 
     Map<String, dynamic> triggerData = {
       'trigger_type': pick['type'],
@@ -103,28 +145,36 @@ class _HomeScreenState extends State<HomeScreen>
     };
 
     // Mark trigger as fired so it won't re-run if HomeScreen is rebuilt
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('demo_trigger_fired', true);
+    _demoFiredThisSession = true;
 
     try {
       final res = await http.post(
         Uri.parse('$BASE_URL/demo/trigger'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'zone':      zone,
-          'type':      pick['type'],
-          'severity':  pick['severity'],
-          'value':     pick['value'],
-          'worker_id': widget.workerId, // ← tells backend which worker to claim for
+          'zone':        zone,
+          'type':        pick['type'],
+          'severity':    pick['severity'],
+          'value':       pick['value'],
+          'worker_id':   widget.workerId, 
+          'force_fraud': forceFraud, // ← true if triggered via Manual 'Trigger Fraud'
         }),
       );
       if (res.statusCode == 200) {
         final body = json.decode(res.body) as Map<String, dynamic>;
+        final claim = body['claim'] as Map?;
         // Merge real claim data from backend response
         triggerData = {
           ...triggerData,
-          if (body['claim'] != null)
-            'amount': (body['claim'] as Map)['amount'] ?? triggerData['amount'],
+          if (claim != null) ...{
+            'amount':             claim['amount'] ?? triggerData['amount'],
+            'fraud_flag':         claim['fraud_flag'] ?? false,
+            'fraud_reason':       claim['fraud_reason'],
+            'claim_status':       claim['status'],
+            'fraud_score':        claim['fraud_score'],
+            'fraud_probability':  claim['fraud_probability'],
+            'behavioral_profile': claim['behavioral_profile'],
+          },
           if (body['trigger'] != null)
             'trigger_id': (body['trigger'] as Map)['id'],
         };

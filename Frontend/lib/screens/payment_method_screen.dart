@@ -51,7 +51,7 @@ class _PaymentMethodScreenState
       builder: (ctx) => PayoutAnimationScreen(
         triggerName: widget.triggers
           .map((t) => t['name']).join(', '),
-        zone:       widget.policy?['zone'] ?? 'Koramangala',
+        zone:       widget.policy?['zone'] ?? 'Your Zone',
         severity:   'T3',
         amount:     widget.total,
         workerName: widget.policy?['name'] ?? 'Worker',
@@ -110,6 +110,81 @@ class _PaymentMethodScreenState
                         ],
                       ),
                     ]),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Razorpay Payment Gateway Banner
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF072654),
+                          const Color(0xFF0A3D7A),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFF2E86DE).withOpacity(0.4)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text('Razorpay',
+                              style: TextStyle(
+                                color: Color(0xFF072654),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5)),
+                          ),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF5A623).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: const Text('TEST MODE',
+                              style: TextStyle(
+                                color: Color(0xFFF5A623),
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1)),
+                          ),
+                          const Spacer(),
+                          const Icon(Icons.verified_rounded,
+                            color: Color(0xFF2E86DE), size: 20),
+                        ]),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Secure instant payout powered by Razorpay Payment Gateway',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            height: 1.4)),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          _gatewayChip('UPI'),
+                          const SizedBox(width: 6),
+                          _gatewayChip('Cards'),
+                          const SizedBox(width: 6),
+                          _gatewayChip('NetBanking'),
+                          const SizedBox(width: 6),
+                          _gatewayChip('Wallets'),
+                        ]),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 24),
@@ -464,4 +539,18 @@ class _PaymentMethodScreenState
       fontSize:      12,
       fontWeight:    FontWeight.w700,
       letterSpacing: 0.8));
+
+  Widget _gatewayChip(String label) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: Colors.white.withOpacity(0.12)),
+    ),
+    child: Text(label,
+      style: const TextStyle(
+        color: Colors.white60,
+        fontSize: 10,
+        fontWeight: FontWeight.w600)),
+  );
 }

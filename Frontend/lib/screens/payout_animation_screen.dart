@@ -51,9 +51,9 @@ class _PayoutAnimationScreenState
     {'label': 'Fraud check passed',
       'icon': Icons.verified_rounded,
       'color': Color(0xFF9C6FFF)},
-    {'label': 'Processing payout...',
+    {'label': 'Razorpay processing payout...',
       'icon': Icons.account_balance_wallet_rounded,
-      'color': Color(0xFFF5A623)},
+      'color': Color(0xFF2E86DE)},
   ];
 
   @override
@@ -264,9 +264,22 @@ class _PayoutAnimationScreenState
                   letterSpacing: -2));
             },
           ),
-          const Text('credited to your UPI',
+          const Text('credited via Razorpay UPI',
             style: TextStyle(
               color: Colors.white54, fontSize: 16)),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2E86DE).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: const Text('Powered by Razorpay',
+              style: TextStyle(
+                color: Color(0xFF2E86DE),
+                fontSize: 11,
+                fontWeight: FontWeight.w700)),
+          ),
         ]),
       ),
       const SizedBox(height: 40),
@@ -283,7 +296,8 @@ class _PayoutAnimationScreenState
           _sumRow('Trigger',  widget.triggerName),
           _sumRow('Zone',     widget.zone),
           _sumRow('Amount',   '₹${widget.amount}'),
-          _sumRow('Method',   'UPI'),
+          _sumRow('Gateway',  'Razorpay (Test Mode)'),
+          _sumRow('Method',   'UPI Instant Payout'),
           _sumRow('Status',   '✓ Completed'),
         ]),
       ),

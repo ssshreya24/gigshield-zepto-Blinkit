@@ -153,7 +153,7 @@ class ClaimSummaryScreen extends StatelessWidget {
                       policy?['name'] ?? 'Worker'),
                     _divider(),
                     _infoRow('Zone',
-                      policy?['zone'] ?? 'Koramangala'),
+                      policy?['zone'] ?? 'Your Zone'),
                     _divider(),
                     _infoRow('Platform',
                       policy?['platform'] ?? 'Zepto'),

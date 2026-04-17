@@ -23,25 +23,10 @@ class _ZonesTabState extends State<ZonesTab> {
   static const bdr  = Color(0xFF1E2E45);
 
   List<dynamic> triggers = [];
+  List<dynamic> rawZones = [];
   bool loading = true;
   String _filter = 'ALL'; // ALL | HIGH | MEDIUM | LOW
   Timer? _timer;
-
-  // Static zone catalogue (extended from onboarding_screen zones)
-  final List<Map<String, dynamic>> _allZones = [
-    {'name': 'Koramangala', 'city': 'Bengaluru', 'baseRisk': 72},
-    {'name': 'HSR Layout',  'city': 'Bengaluru', 'baseRisk': 65},
-    {'name': 'Marathahalli','city': 'Bengaluru', 'baseRisk': 55},
-    {'name': 'Andheri',     'city': 'Mumbai',    'baseRisk': 60},
-    {'name': 'Velachery',   'city': 'Chennai',   'baseRisk': 55},
-    {'name': 'Indiranagar', 'city': 'Bengaluru', 'baseRisk': 45},
-    {'name': 'Bander',      'city': 'Mumbai',    'baseRisk': 48},
-    {'name': 'Lajpat Nagar','city': 'Delhi',     'baseRisk': 50},
-    {'name': 'Gachibowli',  'city': 'Hyderabad', 'baseRisk': 40},
-    {'name': 'Anna Nagar',  'city': 'Chennai',   'baseRisk': 38},
-    {'name': 'Whitefield',  'city': 'Bengaluru', 'baseRisk': 30},
-    {'name': 'Powai',       'city': 'Mumbai',    'baseRisk': 35},
-  ];
 
   @override
   void initState() {
@@ -55,7 +40,8 @@ class _ZonesTabState extends State<ZonesTab> {
 
   Future<void> _load() async {
     final t = await AdminApi.getTriggers();
-    if (mounted) setState(() { triggers = t; loading = false; });
+    final z = await AdminApi.getZones();
+    if (mounted) setState(() { triggers = t; rawZones = z; loading = false; });
   }
 
   // Count active triggers per zone from live data
@@ -67,28 +53,24 @@ class _ZonesTabState extends State<ZonesTab> {
     }).length;
   }
 
-  // Compute risk level: base risk + active trigger bonus
-  String _risk(String zone, int baseRisk) {
-    final bonus = _activeTriggers(zone) * 15;
-    final total = baseRisk + bonus;
-    if (total >= 65) return 'HIGH';
-    if (total >= 45) return 'MEDIUM';
-    return 'LOW';
-  }
 
-  int _riskScore(String zone, int baseRisk) {
-    final bonus = _activeTriggers(zone) * 15;
-    return (baseRisk + bonus).clamp(0, 100);
-  }
+
+
 
   List<Map<String, dynamic>> get _zonesWithRisk {
-    return _allZones.map((z) {
-      final score = _riskScore(z['name'] as String, z['baseRisk'] as int);
+    return rawZones.map((z) {
+      final name = z['zone'] as String? ?? 'Unknown';
+      final active = int.tryParse(z['active_triggers']?.toString() ?? '0') ?? 0;
+      final score = active > 10 ? 95 : (active > 3 ? 65 : 30);
+      final risk = active > 10 ? 'HIGH' : (active > 3 ? 'MEDIUM' : 'LOW');
+
       return {
-        ...z,
-        'risk':    _risk(z['name'] as String, z['baseRisk'] as int),
+        'name':    name,
+        'city':    'India', // Can be populated if backend yields it, keeping simple
+        'baseRisk': 30,
+        'risk':    risk,
         'score':   score,
-        'active':  _activeTriggers(z['name'] as String),
+        'active':  active,
       };
     }).toList()
       ..sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));

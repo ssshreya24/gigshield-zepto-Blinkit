@@ -243,7 +243,7 @@ class _TriggerDetailScreenState
 
   Widget _locationCard() => _darkCard(child: Column(children: [
     _row(Icons.location_on_rounded, 'Location detected',
-      widget.policy?['zone'] ?? 'Koramangala, Bengaluru'),
+      widget.policy?['zone'] ?? 'Your Zone'),
     _divider(),
     _row(Icons.schedule_rounded, 'Event time',
       'Today · ${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2,'0')} IST'),

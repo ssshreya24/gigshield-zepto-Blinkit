@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/claim_receipt_generator.dart';
+import '../services/api_service.dart';
 import 'home_screen.dart';
 
 class ClaimSuccessScreen extends StatefulWidget {
@@ -36,6 +37,9 @@ class _ClaimSuccessScreenState
   late Animation<double>   _amt;
 
   bool _downloading = false;
+  String _paymentProvider = 'Razorpay';
+  String _paymentMode = 'test';
+  String? _razorpayOrderId;
 
   late final String _claimId;
   late final String _txnId;
@@ -65,6 +69,30 @@ class _ClaimSuccessScreenState
         HapticFeedback.heavyImpact();
       }
     });
+
+    // Create Razorpay payment order for this payout
+    _createPaymentOrder();
+  }
+
+  Future<void> _createPaymentOrder() async {
+    try {
+      final order = await ApiService.createPaymentOrder(
+        amount:      widget.total,
+        triggerType: widget.triggers.isNotEmpty
+          ? widget.triggers[0]['trigger_type']?.toString() ?? 'payout'
+          : 'payout',
+        zone: widget.policy?['zone']?.toString(),
+      );
+      if (mounted && order['success'] == true) {
+        setState(() {
+          _razorpayOrderId = order['order_id']?.toString();
+          _paymentProvider = order['provider']?.toString() ?? 'Razorpay';
+          _paymentMode     = order['mode']?.toString() ?? 'test';
+        });
+      }
+    } catch (_) {
+      // Non-blocking — payout UI still shows even if order creation fails
+    }
   }
 
   @override
@@ -257,7 +285,7 @@ class _ClaimSuccessScreenState
                     widget.policy?['name'] ?? 'Worker'),
                   _div(),
                   _txnRow('Zone',
-                    widget.policy?['zone'] ?? 'Koramangala'),
+                    widget.policy?['zone'] ?? 'Your Zone'),
                   _div(),
                   _txnRow('Platform',
                     widget.policy?['platform'] ?? 'Zepto'),
@@ -269,6 +297,16 @@ class _ClaimSuccessScreenState
                   _txnRow('Triggers covered',
                     '${widget.triggers.length}'),
                   _div(),
+                  _txnRow('Payment Gateway',
+                    '$_paymentProvider (${_paymentMode.toUpperCase()})'),
+                  _div(),
+                  if (_razorpayOrderId != null) ...[
+                    _txnRow('Order ID',
+                      _razorpayOrderId!.length > 20
+                        ? '${_razorpayOrderId!.substring(0, 20)}...'
+                        : _razorpayOrderId!),
+                    _div(),
+                  ],
                   _txnRow('Total credited', '₹${widget.total}',
                     valueColor: gold),
                 ])),

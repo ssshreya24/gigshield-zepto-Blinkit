@@ -50,7 +50,7 @@ class ClaimReceiptGenerator {
     final dateStr    = _formatDate(now);
     final timeStr    = _formatTime(now);
     final workerName = policy?['name']     ?? 'Worker';
-    final zone       = policy?['zone']     ?? 'Koramangala';
+    final zone       = policy?['zone']     ?? 'Your Zone';
     final platform   = policy?['platform'] ?? 'Zepto';
     final plan       = (policy?['plan_type'] ?? 'standard').toUpperCase();
     final wid        = policy?['id'] ?? 1;
